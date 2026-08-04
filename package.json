@@ -1,0 +1,13 @@
+{
+  "name": "x-media-downloader",
+  "version": "1.0.0",
+  "description": "X (Twitter) 媒体下载器 - 单页应用，可部署到 Netlify/Cloudflare Pages",
+  "main": "index.html",
+  "scripts": {
+    "dev": "python3 -m http.server 8000",
+    "deploy": "netlify deploy --prod"
+  },
+  "author": "巴雷特",
+  "license": "MIT",
+  "keywords": ["twitter", "x", "media", "downloader"]
+}
