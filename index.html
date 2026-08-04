@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>X Media Downloader · 推特媒体下载器</title>
+<style>
+:root {
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --surface-2: #334155;
+  --border: #475569;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --downloaded: #8b5cf6;
+  --success: #10b981;
+  --error: #ef4444;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 30px 0 20px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 30px;
+}
+.header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 8px;
+}
+.header p { color: var(--text-muted); font-size: 14px; }
+
+/* Sections */
+.section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Form */
+.form-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.input {
+  flex: 1;
+  min-width: 200px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+.input:focus { outline: none; border-color: var(--accent); }
+.input[placeholder] { font-style: italic; }
+
+.btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.btn:hover:not(:disabled) { background: var(--accent-hover); transform: translateY(-1px); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-secondary {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.btn-secondary:hover:not(:disabled) { background: var(--border); }
+
+/* Cookie input */
+.cookie-input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  resize: vertical;
+  min-height: 80px;
+}
+.cookie-input:focus { outline: none; border-color: var(--accent); }
+
+.hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+.hint code {
+  background: var(--bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+/* Progress */
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--bg);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 12px 0;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #8b5cf6);
+  width: 0%;
+  transition: width 0.3s;
+  border-radius: 4px;
+}
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.log {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 11px;
+  max-height: 150px;
+  overflow-y: auto;
+  margin-top: 12px;
+}
+.log-line { color: var(--text-muted); padding: 2px 0; }
+.log-line.error { color: var(--error); }
+.log-line.success { color: var(--success); }
+
+/* Tabs */
+.tabs {
+  display: flex;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 20px;
+}
+.tab {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 12px 24px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+.tab:hover { color: var(--text); }
+.tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.tab-badge {
+  background: var(--surface-2);
+  color: var(--text-muted);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  margin-left: 6px;
+  font-weight: 500;
+}
+.tab.active .tab-badge { background: var(--accent); color: white; }
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* Media list */
+.media-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.media-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.2s;
+}
+.media-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+
+.media-thumb {
+  width: 100%;
+  height: 200px;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+.media-thumb img,
+.media-thumb video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.media-thumb-icon {
+  font-size: 40px;
+  color: var(--text-muted);
+}
+
+.media-info { padding: 12px; }
+.media-tweet-link {
+  font-size: 12px;
+  color: var(--accent);
+  text-decoration: none;
+  word-break: break-all;
+  display: block;
+  margin-bottom: 4px;
+}
+.media-tweet-link:hover { text-decoration: underline; }
+.media-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.btn-download {
+  width: 100%;
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.btn-download:hover:not(:disabled) { background: var(--accent-hover); }
+.btn-download.downloaded {
+  background: var(--downloaded);
+  cursor: default;
+}
+.btn-download:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+.empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+
+/* Footer */
+.footer {
+  text-align: center;
+  padding: 30px 0 20px;
+  color: var(--text-muted);
+  font-size: 12px;
+  border-top: 1px solid var(--border);
+  margin-top: 40px;
+}
+.footer a { color: var(--accent); text-decoration: none; }
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  color: var(--text);
+  padding: 12px 24px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; }
+.toast.error { border-color: var(--error); }
+.toast.success { border-color: var(--success); }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .container { padding: 12px; }
+  .media-list { grid-template-columns: 1fr; }
+  .header h1 { font-size: 22px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🐦 X Media Downloader</h1>
+    <p>下载 X (Twitter) 账号的全部图片和视频，最高清晰度</p>
+  </div>
+
+  <!-- Cookie 配置 -->
+  <div class="section">
+    <div class="section-title">1. 配置 Cookie</div>
+    <textarea id="cookieInput" class="cookie-input" placeholder="粘贴你的 X (Twitter) Cookie 字符串...&#10;&#10;获取方式：登录 X.com → 打开 DevTools (F12) → Network 标签 → 任意请求 → 复制 Cookie 头"></textarea>
+    <div class="hint">
+      提示：Cookie 仅保存在你的浏览器本地，不会上传到任何服务器。可以勾选下方"记住"避免每次重新输入。
+    </div>
+    <div style="margin-top: 10px;">
+      <label style="font-size: 13px; color: var(--text-muted);">
+        <input type="checkbox" id="rememberCookie" checked> 记住 Cookie（保存到 localStorage）
+      </label>
+    </div>
+  </div>
+
+  <!-- 抓取配置 -->
+  <div class="section">
+    <div class="section-title">2. 抓取账号</div>
+    <div class="form-row">
+      <input type="text" id="usernameInput" class="input" placeholder="目标用户名（不带 @），例如 elonmusk">
+      <input type="number" id="maxTweetsInput" class="input" placeholder="最大推文数" value="200" min="1" max="5000" style="max-width: 150px;">
+      <button id="fetchBtn" class="btn">🚀 抓取媒体</button>
+      <button id="stopBtn" class="btn btn-secondary" disabled>⏹ 停止</button>
+    </div>
+    <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+    <div class="progress-info">
+      <span id="progressText">准备就绪</span>
+      <span id="progressStats">0 / 0</span>
+    </div>
+    <div id="logArea" class="log" style="display: none;"></div>
+  </div>
+
+  <!-- 媒体列表 -->
+  <div class="section" id="mediaSection" style="display: none;">
+    <div class="section-title">3. 媒体资源</div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="images">
+        🖼️ 图片 <span class="tab-badge" id="imageCount">0</span>
+      </button>
+      <button class="tab" data-tab="videos">
+        🎬 视频 <span class="tab-badge" id="videoCount">0</span>
+      </button>
+    </div>
+
+    <div class="tab-content active" data-tab="images">
+      <div id="imageList" class="media-list"></div>
+      <div id="imageEmpty" class="empty-state">
+        <div class="icon">🖼️</div>
+        <p>暂无图片</p>
+      </div>
+    </div>
+
+    <div class="tab-content" data-tab="videos">
+      <div id="videoList" class="media-list"></div>
+      <div id="videoEmpty" class="empty-state">
+        <div class="icon">🎬</div>
+        <p>暂无视频</p>
+      </div>
+    </div>
+
+    <div style="margin-top: 20px; text-align: center;">
+      <button id="downloadAllBtn" class="btn">📥 全部下载（依次触发）</button>
+      <button id="exportJsonBtn" class="btn btn-secondary">📋 导出清单（JSON）</button>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>仅供个人备份使用 · 所有数据保存在你的浏览器本地 · <a href="https://github.com" target="_blank">GitHub</a></p>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+// =============================================================================
+// 状态管理
+// =============================================================================
+const state = {
+  cookie: '',
+  username: '',
+  maxTweets: 200,
+  tweets: [],
+  images: [],
+  videos: [],
+  downloaded: new Set(),
+  isFetching: false,
+  abortController: null,
+};
+
+const $ = (id) => document.getElementById(id);
+
+// =============================================================================
+// 持久化
+// =============================================================================
+function loadPersisted() {
+  if (localStorage.getItem('rememberCookie') === 'true') {
+    const c = localStorage.getItem('xCookie');
+    if (c) $('cookieInput').value = c;
+    $('rememberCookie').checked = true;
+  }
+  const downloaded = localStorage.getItem('downloaded');
+  if (downloaded) state.downloaded = new Set(JSON.parse(downloaded));
+}
+
+function persistCookie(c) {
+  if ($('rememberCookie').checked) {
+    localStorage.setItem('xCookie', c);
+    localStorage.setItem('rememberCookie', 'true');
+  } else {
+    localStorage.removeItem('xCookie');
+    localStorage.removeItem('rememberCookie', false);
+  }
+}
+
+function persistDownloaded() {
+  localStorage.setItem('downloaded', JSON.stringify([...state.downloaded]));
+}
+
+// =============================================================================
+// UI 工具
+// =============================================================================
+function toast(msg, type = '') {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast ' + type, 3000);
+}
+
+function log(msg, type = '') {
+  const logArea = $('logArea');
+  logArea.style.display = 'block';
+  const line = document.createElement('div');
+  line.className = 'log-line ' + type;
+  const ts = new Date().toLocaleTimeString();
+  line.textContent = `[${ts}] ${msg}`;
+  logArea.appendChild(line);
+  logArea.scrollTop = logArea.scrollHeight;
+}
+
+function setProgress(percent, text, current, total) {
+  $('progressFill').style.width = `${percent}%`;
+  $('progressText').textContent = text;
+  $('progressStats').textContent = `${current} / ${total}`;
+}
+
+// =============================================================================
+// Tab 切换
+// =============================================================================
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelector(`.tab-content[data-tab="${tab.dataset.tab}"]`).classList.add('active');
+  });
+});
+
+// =============================================================================
+// X / Twitter 抓取（通过 GraphQL API + Cookie）
+// =============================================================================
+const BEARER_TOKEN = 'AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
+const API_BASE = 'https://api.x.com/graphql';
+
+const QUERIES = {
+  UserByScreenName: 'GazOglcBvgLigl3ywt6b3x4Qb4OYxqKAhhD1AXgc40K0-7R3qA8iWA',
+  UserMedia: 'dexO_2tohK86JDudXXG3GRxZTrIuKtONB3vYJclbcQoO0JEhIiOtA1HUluB0dYyG',
+};
+
+// 通过用户名获取 user_id
+async function getUserId(username, cookie) {
+  const variables = {
+    screen_name: username,
+    withSafetyModeUserFields: true,
+  };
+  const features = {
+    hidden_profile_likes_enabled: true,
+    rweb_tipjar_consumption_enabled: true,
+    responsive_web_graphql_exclude_directive_enabled: true,
+    verified_phone_label_enabled: false,
+    subscriptions_verification_info_is_identity_verified_enabled: true,
+    subscriptions_verification_info_verified_since_enabled: true,
+    highlights_tweets_tab_ui_enabled: true,
+    creator_subscriptions_tweet_preview_api_enabled: true,
+    responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
+    responsive_web_graphql_timeline_navigation_enabled: true,
+  };
+
+  const url = `${API_BASE}/${QUERIES.UserByScreenName}/UserByScreenName?variables=${encodeURIComponent(JSON.stringify(variables))}&features=${encodeURIComponent(JSON.stringify(features))}`;
+
+  const resp = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'authorization': `Bearer ${BEARER_TOKEN}`,
+      'cookie': cookie,
+      'x-twitter-active-user': 'yes',
+      'x-twitter-client-language': 'en',
+    },
+    signal: state.abortController.signal,
+  });
+
+  if (!resp.ok) throw new Error(`UserByScreenName ${resp.status}`);
+  const data = await resp.json();
+  const user = data?.data?.user?.result;
+  if (!user) throw new Error('用户不存在或 Cookie 无效');
+  return {
+    id: user.rest_id,
+    name: user.legacy.name,
+    screenName: user.legacy.screen_name,
+  };
+}
+
+// 获取用户媒体推文
+async function getUserMedia(userId, cookie, count, cursor = null) {
+  const variables = {
+    userId: userId,
+    count: count,
+    includePromotedContent: false,
+    withClientEventToken: false,
+    withBirdwatchNotes: false,
+    withVoice: true,
+    withV2Timeline: true,
+  };
+  if (cursor) variables.cursor = cursor;
+
+  const features = {
+    responsive_web_graphql_exclude_directive_enabled: true,
+    verified_phone_label_enabled: false,
+    creator_subscriptions_tweet_preview_api_enabled: true,
+    responsive_web_graphql_timeline_navigation_enabled: true,
+    responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
+    communities_web_enable_tweet_community_results_fetch: true,
+    c9s_tweet_anatomy_moderator_badge_enabled: true,
+    articles_graphql_enabled: true,
+    longform_notetweets_consumption_enabled: true,
+    responsive_web_twitter_article_tweet_consumption_enabled: true,
+    tweet_awards_web_tipping_enabled: false,
+    creator_subscriptions_quote_tweet_preview_enabled: false,
+    freedom_of_speech_not_reach_fetch_enabled: true,
+    standardized_nudges_misinfo: true,
+    tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled: true,
+    rweb_video_timestamps_enabled: true,
+    longform_notetweets_rich_text_read_enabled: true,
+    longform_notetweets_inline_media_enabled: true,
+    responsive_web_enhance_cards_enabled: false,
+  };
+
+  const url = `${API_BASE}/${QUERIES.UserMedia}/UserMedia?variables=${encodeURIComponent(JSON.stringify(variables))}&features=${encodeURIComponent(JSON.stringify(features))}`;
+
+  const resp = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'authorization': `Bearer ${BEARER_TOKEN}`,
+      'cookie': cookie,
+      'x-twitter-active-user': 'yes',
+      'x-twitter-client-language': 'en',
+    },
+    signal: state.abortController.signal,
+  });
+
+  if (!resp.ok) throw new Error(`UserMedia ${resp.status}`);
+  return await resp.json();
+}
+
+// 提取媒体
+function extractMedia(tweets) {
+  const images = [];
+  const videos = [];
+
+  for (const tweet of tweets) {
+    const legacy = tweet.legacy || tweet.tweet?.legacy;
+    if (!legacy) continue;
+
+    const tweetId = legacy.id_str;
+    const tweetUrl = `https://x.com/${legacy.user_id_str ? '' : ''}${legacy.screen_name || ''}/status/${tweetId}`;
+    const createdAt = legacy.created_at;
+    const fullText = legacy.full_text || '';
+
+    // 处理媒体
+    const mediaList = legacy.entities?.media || [];
+    const extMedia = legacy.extended_entities?.media || [];
+
+    for (const m of extMedia) {
+      const baseItem = {
+        tweetId,
+        tweetUrl: `https://x.com/i/status/${tweetId}`,
+        createdAt,
+        text: fullText.slice(0, 100),
+      };
+
+      if (m.type === 'photo') {
+        // 图片：取最高清（去掉 ?name=xxx 限制，加 ?name=orig）
+        const origUrl = m.media_url_https + '?name=orig';
+        images.push({
+          ...baseItem,
+          type: 'image',
+          url: origUrl,
+          preview: m.media_url_https + '?name=small',
+          size: '未知',
+        });
+      } else if (m.type === 'video' || m.type === 'animated_gif') {
+        // 视频：取最高码率
+        const variants = m.video_info?.variants || [];
+        const mp4Variants = variants
+          .filter(v => v.content_type === 'video/mp4')
+          .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+        if (mp4Variants.length > 0) {
+          const best = mp4Variants[0];
+          videos.push({
+            ...baseItem,
+            type: m.type === 'animated_gif' ? 'gif' : 'video',
+            url: best.url,
+            preview: m.media_url_https,
+            bitrate: best.bitrate,
+            size: '未知',
+          });
+        }
+      }
+    }
+  }
+
+  return { images, videos };
+}
+
+// 递归遍历 timeline
+function flattenTweets(timeline) {
+  const tweets = [];
+  const instructions = timeline?.data?.user?.result?.timeline_v2?.timeline?.instructions || [];
+  for (const inst of instructions) {
+    if (inst.type === 'TimelineAddEntries') {
+      for (const entry of inst.entries || []) {
+        const content = entry.content;
+        if (content?.entryType === 'TimelineTimelineItem') {
+          const tweetResult = content.itemContent?.tweet_results?.result;
+          if (tweetResult) tweets.push(tweetResult);
+        }
+      }
+    }
+  }
+  return tweets;
+}
+
+// =============================================================================
+// 主抓取流程
+// =============================================================================
+async function startFetch() {
+  const cookie = $('cookieInput').value.trim();
+  const username = $('usernameInput').value.trim().replace(/^@/, '');
+  const maxTweets = parseInt($('maxTweetsInput').value) || 200;
+
+  if (!cookie) return toast('请先输入 Cookie', 'error');
+  if (!username) return toast('请输入目标用户名', 'error');
+
+  state.cookie = cookie;
+  state.username = username;
+  state.maxTweets = maxTweets;
+  state.images = [];
+  state.videos = [];
+  state.tweets = [];
+  persistCookie(cookie);
+
+  state.isFetching = true;
+  state.abortController = new AbortController();
+  $('fetchBtn').disabled = true;
+  $('stopBtn').disabled = false;
+  $('mediaSection').style.display = 'none';
+  $('logArea').innerHTML = '';
+  $('logArea').style.display = 'block';
+
+  try {
+    log(`开始抓取用户 @${username}...`);
+    setProgress(0, '正在获取用户信息...', 0, maxTweets);
+
+    const user = await getUserId(username, cookie);
+    log(`✓ 找到用户: ${user.name} (@${user.screenName})`, 'success');
+
+    let cursor = null;
+    let totalFetched = 0;
+    let pageCount = 0;
+
+    while (totalFetched < maxTweets && state.isFetching) {
+      const remaining = maxTweets - totalFetched;
+      const count = Math.min(remaining, 40);
+
+      pageCount++;
+      log(`第 ${pageCount} 页请求 ${count} 条推文...`);
+
+      const resp = await getUserMedia(user.id, cookie, count, cursor);
+      const tweets = flattenTweets(resp);
+
+      if (tweets.length === 0) {
+        log('已无更多推文', 'success');
+        break;
+      }
+
+      state.tweets.push(...tweets);
+      totalFetched += tweets.length;
+      const { images, videos } = extractMedia(tweets);
+      state.images.push(...images);
+      state.videos.push(...videos);
+
+      setProgress(
+        (totalFetched / maxTweets) * 100,
+        `已抓取 ${tweets.length} 条推文`,
+        totalFetched,
+        maxTweets
+      );
+      log(`✓ 累计: ${totalFetched} 条推文, ${state.images.length} 张图, ${state.videos.length} 个视频`, 'success');
+
+      // 获取下一批 cursor
+      const instructions = resp?.data?.user?.result?.timeline_v2?.timeline?.instructions || [];
+      let nextCursor = null;
+      for (const inst of instructions) {
+        if (inst.type === 'TimelineAddEntries') {
+          for (const entry of inst.entries || []) {
+            if (entry.content?.entryType === 'TimelineTimelineCursor' &&
+                entry.content.cursorType === 'Bottom') {
+              nextCursor = entry.content.value;
+            }
+          }
+        }
+      }
+      if (!nextCursor) {
+        log('已到达时间线末尾', 'success');
+        break;
+      }
+      cursor = nextCursor;
+
+      // 节流：每页之间等待 1-2 秒，避免被风控
+      await new Promise(r => setTimeout(r, 1500));
+    }
+
+    log(`抓取完成！共 ${state.tweets.length} 条推文，${state.images.length} 张图，${state.videos.length} 个视频`, 'success');
+    setProgress(100, '抓取完成', totalFetched, maxTweets);
+    renderMedia();
+  } catch (e) {
+    if (e.name === 'AbortError') {
+      log('已停止抓取', 'error');
+    } else {
+      log(`错误: ${e.message}`, 'error');
+      toast('抓取失败: ' + e.message, 'error');
+    }
+  } finally {
+    state.isFetching = false;
+    $('fetchBtn').disabled = false;
+    $('stopBtn').disabled = true;
+  }
+}
+
+function stopFetch() {
+  if (state.abortController) {
+    state.abortController.abort();
+    state.isFetching = false;
+  }
+}
+
+// =============================================================================
+// 渲染
+// =============================================================================
+function renderMedia() {
+  $('imageCount').textContent = state.images.length;
+  $('videoCount').textContent = state.videos.length;
+
+  const imageList = $('imageList');
+  const videoList = $('videoList');
+  const imageEmpty = $('imageEmpty');
+  const videoEmpty = $('videoEmpty');
+
+  imageList.innerHTML = '';
+  videoList.innerHTML = '';
+
+  // 图片
+  if (state.images.length === 0) {
+    imageEmpty.style.display = 'block';
+  } else {
+    imageEmpty.style.display = 'none';
+    state.images.forEach((img, idx) => {
+      imageList.appendChild(createMediaCard(img, idx, 'image'));
+    });
+  }
+
+  // 视频
+  if (state.videos.length === 0) {
+    videoEmpty.style.display = 'block';
+  } else {
+    videoEmpty.style.display = 'none';
+    state.videos.forEach((vid, idx) => {
+      videoList.appendChild(createMediaCard(vid, idx, 'video'));
+    });
+  }
+
+  $('mediaSection').style.display = 'block';
+}
+
+function createMediaCard(item, idx, kind) {
+  const card = document.createElement('div');
+  card.className = 'media-card';
+
+  const isDownloaded = state.downloaded.has(item.url);
+  const date = new Date(item.createdAt).toLocaleDateString('zh-CN');
+
+  // 缩略图
+  const thumb = document.createElement('div');
+  thumb.className = 'media-thumb';
+  if (kind === 'image') {
+    const img = document.createElement('img');
+    img.src = item.preview;
+    img.loading = 'lazy';
+    img.alt = 'image';
+    thumb.appendChild(img);
+  } else {
+    // 视频：用第一帧作为预览
+    const vid = document.createElement('video');
+    vid.src = item.preview;
+    vid.muted = true;
+    vid.loop = true;
+    vid.onmouseenter = () => vid.play().catch(() => {});
+    vid.onmouseleave = () => vid.pause();
+    thumb.appendChild(vid);
+  }
+  card.appendChild(thumb);
+
+  // 信息
+  const info = document.createElement('div');
+  info.className = 'media-info';
+  info.innerHTML = `
+    <a href="${item.tweetUrl}" target="_blank" class="media-tweet-link">查看原推文 #${item.tweetId}</a>
+    <div class="media-meta">
+      <span>📅 ${date}</span>
+      <span>${kind === 'image' ? '🖼️' : (item.type === 'gif' ? '🎞️' : '🎬')}</span>
+    </div>
+  `;
+  card.appendChild(info);
+
+  // 下载按钮
+  const btn = document.createElement('button');
+  btn.className = 'btn-download' + (isDownloaded ? ' downloaded' : '');
+  btn.textContent = isDownloaded ? '✓ 已下载' : '⬇️ 下载';
+  btn.disabled = isDownloaded;
+  btn.onclick = () => downloadMedia(item, btn);
+  card.appendChild(btn);
+
+  return card;
+}
+
+// =============================================================================
+// 下载
+// =============================================================================
+function sanitizeFilename(name) {
+  return name.replace(/[^\w\-_.]/g, '_').slice(0, 200);
+}
+
+function downloadMedia(item, btn) {
+  // 通过 a 标签触发浏览器原生下载
+  const ext = item.type === 'gif' ? 'mp4' : (item.type === 'video' ? 'mp4' : 'jpg');
+  const filename = sanitizeFilename(
+    `${state.username}_${item.tweetId}_${item.createdAt.replace(/[^\w]/g, '_').slice(0, 10)}.${ext}`
+  );
+
+  // 创建隐藏的 a 标签触发下载
+  const a = document.createElement('a');
+  a.href = item.url;
+  a.download = filename;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  // 标记为已下载
+  state.downloaded.add(item.url);
+  persistDownloaded();
+  btn.classList.add('downloaded');
+  btn.textContent = '✓ 已下载';
+  btn.disabled = true;
+}
+
+async function downloadAll() {
+  if (state.images.length + state.videos.length === 0) {
+    return toast('没有可下载的媒体', 'error');
+  }
+  if (!confirm(`将依次触发下载 ${state.images.length + state.videos.length} 个文件\n\n浏览器可能会询问是否允许多文件下载。`)) return;
+
+  log('开始批量下载...');
+  const all = [...state.images, ...state.videos];
+  for (let i = 0; i < all.length; i++) {
+    const item = all[i];
+    if (state.downloaded.has(item.url)) continue;
+    const ext = item.type === 'gif' || item.type === 'video' ? 'mp4' : 'jpg';
+    const filename = sanitizeFilename(
+      `${state.username}_${item.tweetId}_${i + 1}.${ext}`
+    );
+    const a = document.createElement('a');
+    a.href = item.url;
+    a.download = filename;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    state.downloaded.add(item.url);
+    persistDownloaded();
+    // 间隔 500ms 避免浏览器卡死
+    await new Promise(r => setTimeout(r, 500));
+  }
+  log('批量下载触发完成，请检查浏览器下载目录', 'success');
+  renderMedia();
+  toast('下载已触发，请查看浏览器下载列表', 'success');
+}
+
+function exportJson() {
+  const data = {
+    username: state.username,
+    fetchTime: new Date().toISOString(),
+    stats: {
+      tweets: state.tweets.length,
+      images: state.images.length,
+      videos: state.videos.length,
+    },
+    images: state.images,
+    videos: state.videos,
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${state.username}_media_${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('清单已导出', 'success');
+}
+
+// =============================================================================
+// 初始化
+// =============================================================================
+$('fetchBtn').addEventListener('click', startFetch);
+$('stopBtn').addEventListener('click', stopFetch);
+$('downloadAllBtn').addEventListener('click', downloadAll);
+$('exportJsonBtn').addEventListener('click', exportJson);
+
+loadPersisted();
+log('就绪 - 请粘贴 Cookie 和目标用户名', 'success');
+</script>
+</body>
+</html>
