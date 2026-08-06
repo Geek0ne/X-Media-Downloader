@@ -3,10 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>X Media Downloader · 推特媒体下载器</title>
+<meta name="theme-color" content="#0f172a">
+<title>X Media Downloader · 推特媒体下载器 v2.0</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🐦%3C/text%3E%3C/svg%3E">
 <style>
 :root {
   --bg: #0f172a;
+  --bg-2: #1e293b;
   --surface: #1e293b;
   --surface-2: #334155;
   --border: #475569;
@@ -14,9 +17,27 @@
   --text-muted: #94a3b8;
   --accent: #3b82f6;
   --accent-hover: #2563eb;
+  --accent-light: #1e3a8a;
   --downloaded: #8b5cf6;
   --success: #10b981;
+  --warning: #f59e0b;
   --error: #ef4444;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Light theme */
+[data-theme="light"] {
+  --bg: #f8fafc;
+  --bg-2: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --border: #e2e8f0;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-light: #dbeafe;
+  --shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -27,6 +48,7 @@ body {
   color: var(--text);
   min-height: 100vh;
   line-height: 1.5;
+  transition: background 0.3s, color 0.3s;
 }
 
 .container {
@@ -41,6 +63,7 @@ body {
   padding: 30px 0 20px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 30px;
+  position: relative;
 }
 .header h1 {
   font-size: 28px;
@@ -53,6 +76,25 @@ body {
 }
 .header p { color: var(--text-muted); font-size: 14px; }
 
+.theme-toggle {
+  position: absolute;
+  top: 30px;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.theme-toggle:hover { transform: rotate(20deg); border-color: var(--accent); }
+
 /* Sections */
 .section {
   background: var(--surface);
@@ -60,6 +102,7 @@ body {
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 20px;
+  box-shadow: var(--shadow);
 }
 .section-title {
   font-size: 14px;
@@ -68,6 +111,21 @@ body {
   margin-bottom: 12px;
   text-transform: uppercase;
   letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-title .num {
+  background: var(--accent);
+  color: white;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 /* Form */
@@ -76,6 +134,7 @@ body {
   gap: 10px;
   margin-bottom: 12px;
   flex-wrap: wrap;
+  align-items: center;
 }
 .input {
   flex: 1;
@@ -104,15 +163,33 @@ body {
   transition: all 0.2s;
   font-family: inherit;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .btn:hover:not(:disabled) { background: var(--accent-hover); transform: translateY(-1px); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
 .btn-secondary {
   background: var(--surface-2);
   color: var(--text);
 }
 .btn-secondary:hover:not(:disabled) { background: var(--border); }
+.btn-danger { background: var(--error); }
+.btn-danger:hover:not(:disabled) { background: #dc2626; }
+.btn-success { background: var(--success); }
+.btn-success:hover:not(:disabled) { background: #059669; }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+
+.checkbox-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 10px;
+}
+.checkbox-row label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.checkbox-row input[type="checkbox"] { accent-color: var(--accent); }
 
 /* Cookie input */
 .cookie-input {
@@ -133,12 +210,14 @@ body {
   font-size: 12px;
   color: var(--text-muted);
   margin-top: 8px;
+  line-height: 1.6;
 }
 .hint code {
   background: var(--bg);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 11px;
+  border: 1px solid var(--border);
 }
 
 /* Progress */
@@ -178,25 +257,41 @@ body {
 .log-line { color: var(--text-muted); padding: 2px 0; }
 .log-line.error { color: var(--error); }
 .log-line.success { color: var(--success); }
+.log-line.warn { color: var(--warning); }
+
+/* Filter bar */
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.filter-bar .input { padding: 6px 10px; font-size: 12px; }
 
 /* Tabs */
 .tabs {
   display: flex;
   border-bottom: 2px solid var(--border);
   margin-bottom: 20px;
+  overflow-x: auto;
 }
 .tab {
   background: none;
   border: none;
   color: var(--text-muted);
-  padding: 12px 24px;
+  padding: 12px 20px;
   cursor: pointer;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   border-bottom: 2px solid transparent;
   margin-bottom: -2px;
   transition: all 0.2s;
   font-family: inherit;
+  white-space: nowrap;
 }
 .tab:hover { color: var(--text); }
 .tab.active {
@@ -208,8 +303,8 @@ body {
   color: var(--text-muted);
   padding: 2px 8px;
   border-radius: 10px;
-  font-size: 11px;
-  margin-left: 6px;
+  font-size: 10px;
+  margin-left: 4px;
   font-weight: 500;
 }
 .tab.active .tab-badge { background: var(--accent); color: white; }
@@ -220,28 +315,30 @@ body {
 /* Media list */
 .media-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 16px;
 }
 
 .media-card {
-  background: var(--surface);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
   transition: all 0.2s;
+  position: relative;
 }
 .media-card:hover { transform: translateY(-2px); border-color: var(--accent); }
 
 .media-thumb {
   width: 100%;
-  height: 200px;
-  background: var(--bg);
+  height: 180px;
+  background: var(--surface-2);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   overflow: hidden;
+  cursor: pointer;
 }
 .media-thumb img,
 .media-thumb video {
@@ -253,8 +350,32 @@ body {
   font-size: 40px;
   color: var(--text-muted);
 }
+.media-duration {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: monospace;
+}
+.media-type-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+}
+.media-type-badge.gif { background: rgba(139, 92, 246, 0.9); }
+.media-type-badge.video { background: rgba(59, 130, 246, 0.9); }
 
-.media-info { padding: 12px; }
+.media-info { padding: 10px 12px; }
 .media-tweet-link {
   font-size: 12px;
   color: var(--accent);
@@ -262,8 +383,19 @@ body {
   word-break: break-all;
   display: block;
   margin-bottom: 4px;
+  line-height: 1.4;
 }
 .media-tweet-link:hover { text-decoration: underline; }
+.media-text {
+  font-size: 12px;
+  color: var(--text);
+  margin-bottom: 6px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .media-meta {
   font-size: 11px;
   color: var(--text-muted);
@@ -279,7 +411,7 @@ body {
   border: none;
   padding: 8px 12px;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -303,6 +435,17 @@ body {
 }
 .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
 
+/* Action bar */
+.action-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
 /* Footer */
 .footer {
   text-align: center;
@@ -325,21 +468,111 @@ body {
   padding: 12px 24px;
   border-radius: 8px;
   border: 1px solid var(--border);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  box-shadow: var(--shadow);
   z-index: 1000;
   opacity: 0;
   transition: opacity 0.3s;
   pointer-events: none;
+  max-width: 90%;
 }
 .toast.show { opacity: 1; }
-.toast.error { border-color: var(--error); }
-.toast.success { border-color: var(--success); }
+.toast.error { border-color: var(--error); color: var(--error); }
+.toast.success { border-color: var(--success); color: var(--success); }
+.toast.warn { border-color: var(--warning); color: var(--warning); }
+
+/* Lightbox */
+.lightbox {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+.lightbox.show { display: flex; }
+.lightbox-content {
+  max-width: 95%;
+  max-height: 85vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lightbox-content img,
+.lightbox-content video {
+  max-width: 100%;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 8px;
+}
+.lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: none;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  font-size: 24px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.lightbox-nav:hover { background: rgba(255, 255, 255, 0.2); }
+.lightbox-nav.prev { left: 20px; }
+.lightbox-nav.next { right: 20px; }
+.lightbox-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.lightbox-close:hover { background: rgba(255, 255, 255, 0.2); }
+.lightbox-info {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: white;
+  font-size: 13px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 8px 16px;
+  border-radius: 6px;
+  max-width: 80%;
+}
+
+/* Loading spinner */
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* Responsive */
 @media (max-width: 768px) {
   .container { padding: 12px; }
   .media-list { grid-template-columns: 1fr; }
   .header h1 { font-size: 22px; }
+  .theme-toggle { top: 12px; right: 12px; width: 36px; height: 36px; }
 }
 </style>
 </head>
@@ -347,28 +580,28 @@ body {
 <div class="container">
   <div class="header">
     <h1>🐦 X Media Downloader</h1>
-    <p>下载 X (Twitter) 账号的全部图片和视频，最高清晰度</p>
+    <p>下载 X (Twitter) 账号的全部图片和视频 · 最高清晰度 · 零后端</p>
+    <button id="themeToggle" class="theme-toggle" title="切换主题">🌙</button>
   </div>
 
   <!-- Cookie 配置 -->
   <div class="section">
-    <div class="section-title">1. 配置 Cookie</div>
+    <div class="section-title"><span class="num">1</span>配置 Cookie</div>
     <textarea id="cookieInput" class="cookie-input" placeholder="粘贴你的 X (Twitter) Cookie 字符串...&#10;&#10;获取方式：登录 X.com → 打开 DevTools (F12) → Network 标签 → 任意请求 → 复制 Cookie 头"></textarea>
     <div class="hint">
-      提示：Cookie 仅保存在你的浏览器本地，不会上传到任何服务器。可以勾选下方"记住"避免每次重新输入。
+      提示：Cookie 仅保存在你的浏览器本地，不会上传到任何服务器。推荐勾选"记住"避免每次重新输入。
     </div>
-    <div style="margin-top: 10px;">
-      <label style="font-size: 13px; color: var(--text-muted);">
-        <input type="checkbox" id="rememberCookie" checked> 记住 Cookie（保存到 localStorage）
-      </label>
+    <div class="checkbox-row">
+      <label><input type="checkbox" id="rememberCookie" checked> 记住 Cookie</label>
+      <label><input type="checkbox" id="incrementalMode"> 增量抓取（只拉新推文）</label>
     </div>
   </div>
 
   <!-- 抓取配置 -->
   <div class="section">
-    <div class="section-title">2. 抓取账号</div>
+    <div class="section-title"><span class="num">2</span>抓取账号</div>
     <div class="form-row">
-      <input type="text" id="usernameInput" class="input" placeholder="目标用户名（不带 @），例如 elonmusk">
+      <input type="text" id="usernameInput" class="input" placeholder="目标用户名（不带 @）">
       <input type="number" id="maxTweetsInput" class="input" placeholder="最大推文数" value="200" min="1" max="5000" style="max-width: 150px;">
       <button id="fetchBtn" class="btn">🚀 抓取媒体</button>
       <button id="stopBtn" class="btn btn-secondary" disabled>⏹ 停止</button>
@@ -383,7 +616,14 @@ body {
 
   <!-- 媒体列表 -->
   <div class="section" id="mediaSection" style="display: none;">
-    <div class="section-title">3. 媒体资源</div>
+    <div class="section-title"><span class="num">3</span>媒体资源</div>
+
+    <div class="filter-bar">
+      <input type="text" id="searchInput" class="input" placeholder="🔍 搜索推文文本..." style="flex: 2;">
+      <input type="date" id="dateFrom" class="input" title="开始日期" style="max-width: 160px;">
+      <input type="date" id="dateTo" class="input" title="结束日期" style="max-width: 160px;">
+      <button id="clearFilterBtn" class="btn btn-sm btn-secondary">清除筛选</button>
+    </div>
 
     <div class="tabs">
       <button class="tab active" data-tab="images">
@@ -391,6 +631,9 @@ body {
       </button>
       <button class="tab" data-tab="videos">
         🎬 视频 <span class="tab-badge" id="videoCount">0</span>
+      </button>
+      <button class="tab" data-tab="gifs">
+        🎞️ GIF <span class="tab-badge" id="gifCount">0</span>
       </button>
     </div>
 
@@ -410,18 +653,40 @@ body {
       </div>
     </div>
 
-    <div style="margin-top: 20px; text-align: center;">
-      <button id="downloadAllBtn" class="btn">📥 全部下载（依次触发）</button>
-      <button id="exportJsonBtn" class="btn btn-secondary">📋 导出清单（JSON）</button>
+    <div class="tab-content" data-tab="gifs">
+      <div id="gifList" class="media-list"></div>
+      <div id="gifEmpty" class="empty-state">
+        <div class="icon">🎞</div>
+        <p>暂无 GIF</p>
+      </div>
+    </div>
+
+    <div class="action-bar">
+      <button id="downloadAllBtn" class="btn">📥 全部下载</button>
+      <button id="downloadZipBtn" class="btn btn-success">📦 打包 ZIP 下载</button>
+      <button id="exportJsonBtn" class="btn btn-secondary">📋 导出清单</button>
+      <button id="exportTweetsBtn" class="btn btn-secondary">📝 导出推文原文</button>
+      <button id="resetDownloadedBtn" class="btn btn-danger btn-sm">重置下载状态</button>
     </div>
   </div>
 
   <div class="footer">
-    <p>仅供个人备份使用 · 所有数据保存在你的浏览器本地 · <a href="https://github.com" target="_blank">GitHub</a></p>
+    <p>v2.0 · 仅供个人备份使用 · 数据保存在你的浏览器本地</p>
   </div>
 </div>
 
+<!-- Lightbox -->
+<div id="lightbox" class="lightbox">
+  <button class="lightbox-close" id="lightboxClose">✕</button>
+  <button class="lightbox-nav prev" id="lightboxPrev">‹</button>
+  <button class="lightbox-nav next" id="lightboxNext">›</button>
+  <div class="lightbox-content" id="lightboxContent"></div>
+  <div class="lightbox-info" id="lightboxInfo"></div>
+</div>
+
 <div id="toast" class="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
 <script>
 // =============================================================================
@@ -434,9 +699,14 @@ const state = {
   tweets: [],
   images: [],
   videos: [],
+  gifs: [],
   downloaded: new Set(),
   isFetching: false,
   abortController: null,
+  userId: null,
+  sinceId: null,
+  retryCount: 0,
+  maxRetries: 3,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -445,27 +715,53 @@ const $ = (id) => document.getElementById(id);
 // 持久化
 // =============================================================================
 function loadPersisted() {
+  // Cookie
   if (localStorage.getItem('rememberCookie') === 'true') {
     const c = localStorage.getItem('xCookie');
     if (c) $('cookieInput').value = c;
     $('rememberCookie').checked = true;
   }
+  // 下载记录
   const downloaded = localStorage.getItem('downloaded');
-  if (downloaded) state.downloaded = new Set(JSON.parse(downloaded));
+  if (downloaded) {
+    try { state.downloaded = new Set(JSON.parse(downloaded)); } catch {}
+  }
+  // 主题
+  const theme = localStorage.getItem('theme') || 'dark';
+  setTheme(theme);
+  // 增量抓取的 since_id
+  const since = localStorage.getItem('sinceId');
+  if (since) state.sinceId = since;
 }
 
-function persistCookie(c) {
-  if ($('rememberCookie').checked) {
+function persistCookie() {
+  const c = $('cookieInput').value.trim();
+  if ($('rememberCookie').checked && c) {
     localStorage.setItem('xCookie', c);
     localStorage.setItem('rememberCookie', 'true');
   } else {
     localStorage.removeItem('xCookie');
-    localStorage.removeItem('rememberCookie', false);
+    localStorage.setItem('rememberCookie', 'false');
   }
 }
 
 function persistDownloaded() {
-  localStorage.setItem('downloaded', JSON.stringify([...state.downloaded]));
+  try {
+    localStorage.setItem('downloaded', JSON.stringify([...state.downloaded]));
+  } catch (e) {
+    toast('下载记录已满，请清理', 'warn');
+  }
+}
+
+function persistSinceId(sinceId) {
+  state.sinceId = sinceId;
+  localStorage.setItem('sinceId', sinceId);
+}
+
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  $('themeToggle').textContent = theme === 'light' ? '☀️' : '🌙';
+  localStorage.setItem('theme', theme);
 }
 
 // =============================================================================
@@ -475,7 +771,8 @@ function toast(msg, type = '') {
   const t = $('toast');
   t.textContent = msg;
   t.className = 'toast show ' + type;
-  setTimeout(() => t.className = 'toast ' + type, 3000);
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.className = 'toast ' + type, 3500);
 }
 
 function log(msg, type = '') {
@@ -495,6 +792,23 @@ function setProgress(percent, text, current, total) {
   $('progressStats').textContent = `${current} / ${total}`;
 }
 
+function formatDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function sanitizeFilename(name) {
+  return name.replace(/[^\w\-_.]/g, '_').slice(0, 200);
+}
+
+function formatDuration(seconds) {
+  if (!seconds) return '';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
 // =============================================================================
 // Tab 切换
 // =============================================================================
@@ -508,7 +822,15 @@ document.querySelectorAll('.tab').forEach(tab => {
 });
 
 // =============================================================================
-// X / Twitter 抓取（通过 GraphQL API + Cookie）
+// 主题切换
+// =============================================================================
+$('themeToggle').addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  setTheme(current === 'dark' ? 'light' : 'dark');
+});
+
+// =============================================================================
+// X / Twitter GraphQL API
 // =============================================================================
 const BEARER_TOKEN = 'AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
 const API_BASE = 'https://api.x.com/graphql';
@@ -518,8 +840,7 @@ const QUERIES = {
   UserMedia: 'dexO_2tohK86JDudXXG3GRxZTrIuKtONB3vYJclbcQoO0JEhIiOtA1HUluB0dYyG',
 };
 
-// 通过用户名获取 user_id
-async function getUserId(username, cookie) {
+async function getUserId(username, cookie, attempt = 1) {
   const variables = {
     screen_name: username,
     withSafetyModeUserFields: true,
@@ -539,30 +860,48 @@ async function getUserId(username, cookie) {
 
   const url = `${API_BASE}/${QUERIES.UserByScreenName}/UserByScreenName?variables=${encodeURIComponent(JSON.stringify(variables))}&features=${encodeURIComponent(JSON.stringify(features))}`;
 
-  const resp = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'authorization': `Bearer ${BEARER_TOKEN}`,
-      'cookie': cookie,
-      'x-twitter-active-user': 'yes',
-      'x-twitter-client-language': 'en',
-    },
-    signal: state.abortController.signal,
-  });
+  try {
+    const resp = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'authorization': `Bearer ${BEARER_TOKEN}`,
+        'cookie': cookie,
+        'x-twitter-active-user': 'yes',
+        'x-twitter-client-language': 'en',
+      },
+      signal: state.abortController.signal,
+    });
 
-  if (!resp.ok) throw new Error(`UserByScreenName ${resp.status}`);
-  const data = await resp.json();
-  const user = data?.data?.user?.result;
-  if (!user) throw new Error('用户不存在或 Cookie 无效');
-  return {
-    id: user.rest_id,
-    name: user.legacy.name,
-    screenName: user.legacy.screen_name,
-  };
+    if (resp.status === 429 || resp.status === 503) {
+      if (attempt <= state.maxRetries) {
+        const wait = (attempt * attempt) * 2; // 2s, 8s, 18s
+        log(`⏳ 限流 (${resp.status})，${wait}s 后重试 (${attempt}/${state.maxRetries})`, 'warn');
+        await new Promise(r => setTimeout(r, wait * 1000));
+        return getUserId(username, cookie, attempt + 1);
+      }
+    }
+
+    if (!resp.ok) throw new Error(`UserByScreenName ${resp.status}`);
+    const data = await resp.json();
+    const user = data?.data?.user?.result;
+    if (!user) throw new Error('用户不存在或 Cookie 无效');
+    return {
+      id: user.rest_id,
+      name: user.legacy.name,
+      screenName: user.legacy.screen_name,
+    };
+  } catch (e) {
+    if (e.name === 'AbortError') throw e;
+    if (attempt <= state.maxRetries) {
+      log(`⚠️ 请求失败，3s 后重试: ${e.message}`, 'warn');
+      await new Promise(r => setTimeout(r, 3000));
+      return getUserId(username, cookie, attempt + 1);
+    }
+    throw e;
+  }
 }
 
-// 获取用户媒体推文
-async function getUserMedia(userId, cookie, count, cursor = null) {
+async function getUserMedia(userId, cookie, count, cursor = null, attempt = 1) {
   const variables = {
     userId: userId,
     count: count,
@@ -598,37 +937,56 @@ async function getUserMedia(userId, cookie, count, cursor = null) {
 
   const url = `${API_BASE}/${QUERIES.UserMedia}/UserMedia?variables=${encodeURIComponent(JSON.stringify(variables))}&features=${encodeURIComponent(JSON.stringify(features))}`;
 
-  const resp = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'authorization': `Bearer ${BEARER_TOKEN}`,
-      'cookie': cookie,
-      'x-twitter-active-user': 'yes',
-      'x-twitter-client-language': 'en',
-    },
-    signal: state.abortController.signal,
-  });
+  try {
+    const resp = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'authorization': `Bearer ${BEARER_TOKEN}`,
+        'cookie': cookie,
+        'x-twitter-active-user': 'yes',
+        'x-twitter-client-language': 'en',
+      },
+      signal: state.abortController.signal,
+    });
 
-  if (!resp.ok) throw new Error(`UserMedia ${resp.status}`);
-  return await resp.json();
+    if (resp.status === 429 || resp.status === 503) {
+      if (attempt <= state.maxRetries) {
+        const wait = (attempt * attempt) * 3;
+        log(`⏳ 限流 (${resp.status})，${wait}s 后重试 (${attempt}/${state.maxRetries})`, 'warn');
+        await new Promise(r => setTimeout(r, wait * 1000));
+        return getUserMedia(userId, cookie, count, cursor, attempt + 1);
+      }
+    }
+
+    if (!resp.ok) throw new Error(`UserMedia ${resp.status}`);
+    return await resp.json();
+  } catch (e) {
+    if (e.name === 'AbortError') throw e;
+    if (attempt <= state.maxRetries) {
+      log(`⚠️ 请求失败，3s 后重试: ${e.message}`, 'warn');
+      await new Promise(r => setTimeout(r, 3000));
+      return getUserMedia(userId, cookie, count, cursor, attempt + 1);
+    }
+    throw e;
+  }
 }
 
-// 提取媒体
+// 解析媒体
 function extractMedia(tweets) {
   const images = [];
   const videos = [];
+  const gifs = [];
 
   for (const tweet of tweets) {
     const legacy = tweet.legacy || tweet.tweet?.legacy;
     if (!legacy) continue;
 
     const tweetId = legacy.id_str;
-    const tweetUrl = `https://x.com/${legacy.user_id_str ? '' : ''}${legacy.screen_name || ''}/status/${tweetId}`;
     const createdAt = legacy.created_at;
-    const fullText = legacy.full_text || '';
+    const fullText = (legacy.full_text || '')
+      .replace(/https:\/\/t\.co\/\w+/g, '') // 移除短链接
+      .trim();
 
-    // 处理媒体
-    const mediaList = legacy.entities?.media || [];
     const extMedia = legacy.extended_entities?.media || [];
 
     for (const m of extMedia) {
@@ -636,21 +994,21 @@ function extractMedia(tweets) {
         tweetId,
         tweetUrl: `https://x.com/i/status/${tweetId}`,
         createdAt,
-        text: fullText.slice(0, 100),
+        text: fullText.slice(0, 200),
+        timestamp: new Date(createdAt).getTime(),
       };
 
       if (m.type === 'photo') {
-        // 图片：取最高清（去掉 ?name=xxx 限制，加 ?name=orig）
         const origUrl = m.media_url_https + '?name=orig';
         images.push({
           ...baseItem,
           type: 'image',
           url: origUrl,
           preview: m.media_url_https + '?name=small',
-          size: '未知',
+          width: m.original_info?.width,
+          height: m.original_info?.height,
         });
-      } else if (m.type === 'video' || m.type === 'animated_gif') {
-        // 视频：取最高码率
+      } else if (m.type === 'video') {
         const variants = m.video_info?.variants || [];
         const mp4Variants = variants
           .filter(v => v.content_type === 'video/mp4')
@@ -659,21 +1017,35 @@ function extractMedia(tweets) {
           const best = mp4Variants[0];
           videos.push({
             ...baseItem,
-            type: m.type === 'animated_gif' ? 'gif' : 'video',
+            type: 'video',
             url: best.url,
             preview: m.media_url_https,
             bitrate: best.bitrate,
-            size: '未知',
+            duration: m.video_info?.duration_millis ? m.video_info.duration_millis / 1000 : 0,
+          });
+        }
+      } else if (m.type === 'animated_gif') {
+        const variants = m.video_info?.variants || [];
+        const mp4Variants = variants
+          .filter(v => v.content_type === 'video/mp4')
+          .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+        if (mp4Variants.length > 0) {
+          const best = mp4Variants[0];
+          gifs.push({
+            ...baseItem,
+            type: 'gif',
+            url: best.url,
+            preview: m.media_url_https,
+            bitrate: best.bitrate,
           });
         }
       }
     }
   }
 
-  return { images, videos };
+  return { images, videos, gifs };
 }
 
-// 递归遍历 timeline
 function flattenTweets(timeline) {
   const tweets = [];
   const instructions = timeline?.data?.user?.result?.timeline_v2?.timeline?.instructions || [];
@@ -689,6 +1061,21 @@ function flattenTweets(timeline) {
     }
   }
   return tweets;
+}
+
+function getNextCursor(timeline) {
+  const instructions = timeline?.data?.user?.result?.timeline_v2?.timeline?.instructions || [];
+  for (const inst of instructions) {
+    if (inst.type === 'TimelineAddEntries') {
+      for (const entry of inst.entries || []) {
+        if (entry.content?.entryType === 'TimelineTimelineCursor' &&
+            entry.content.cursorType === 'Bottom') {
+          return entry.content.value;
+        }
+      }
+    }
+  }
+  return null;
 }
 
 // =============================================================================
@@ -707,8 +1094,20 @@ async function startFetch() {
   state.maxTweets = maxTweets;
   state.images = [];
   state.videos = [];
+  state.gifs = [];
   state.tweets = [];
-  persistCookie(cookie);
+  state.retryCount = 0;
+  persistCookie();
+
+  // 增量模式：使用本地保存的 since_id
+  const incremental = $('incrementalMode').checked;
+  let sinceId = null;
+  if (incremental && state.sinceId) {
+    sinceId = state.sinceId;
+    log(`📌 增量模式：只拉取 since_id=${sinceId} 之后的新推文`, 'success');
+  } else {
+    log(`🔄 全量模式：清空旧推文重新抓取`);
+  }
 
   state.isFetching = true;
   state.abortController = new AbortController();
@@ -723,11 +1122,14 @@ async function startFetch() {
     setProgress(0, '正在获取用户信息...', 0, maxTweets);
 
     const user = await getUserId(username, cookie);
+    state.userId = user.id;
     log(`✓ 找到用户: ${user.name} (@${user.screenName})`, 'success');
 
     let cursor = null;
     let totalFetched = 0;
     let pageCount = 0;
+    let lastTweetId = null;
+    let lastSinceId = sinceId;
 
     while (totalFetched < maxTweets && state.isFetching) {
       const remaining = maxTweets - totalFetched;
@@ -744,44 +1146,71 @@ async function startFetch() {
         break;
       }
 
-      state.tweets.push(...tweets);
-      totalFetched += tweets.length;
-      const { images, videos } = extractMedia(tweets);
-      state.images.push(...images);
-      state.videos.push(...videos);
+      // 增量模式：遇到 sinceId 就停
+      if (sinceId) {
+        const filtered = [];
+        for (const t of tweets) {
+          const id = t.legacy?.id_str || t.rest_id;
+          if (id && BigInt(id) > BigInt(sinceId)) {
+            filtered.push(t);
+            if (!lastSinceId || BigInt(id) > BigInt(lastSinceId)) {
+              lastSinceId = id;
+            }
+          } else {
+            log(`📍 遇到旧推文 (${id})，停止抓取`, 'success');
+            state.isFetching = false;
+            break;
+          }
+        }
+        if (filtered.length === 0) break;
+        state.tweets.push(...filtered);
+        const media = extractMedia(filtered);
+        state.images.push(...media.images);
+        state.videos.push(...media.videos);
+        state.gifs.push(...media.gifs);
+        totalFetched += filtered.length;
+        if (!state.isFetching) break;
+      } else {
+        state.tweets.push(...tweets);
+        // 记录最新推文 ID
+        for (const t of tweets) {
+          const id = t.legacy?.id_str || t.rest_id;
+          if (id && (!lastTweetId || BigInt(id) > BigInt(lastTweetId))) {
+            lastTweetId = id;
+          }
+        }
+        const media = extractMedia(tweets);
+        state.images.push(...media.images);
+        state.videos.push(...media.videos);
+        state.gifs.push(...media.gifs);
+        totalFetched += tweets.length;
+      }
 
       setProgress(
-        (totalFetched / maxTweets) * 100,
+        Math.min((totalFetched / maxTweets) * 100, 99),
         `已抓取 ${tweets.length} 条推文`,
         totalFetched,
         maxTweets
       );
-      log(`✓ 累计: ${totalFetched} 条推文, ${state.images.length} 张图, ${state.videos.length} 个视频`, 'success');
+      log(`✓ 累计: ${totalFetched} 条, ${state.images.length} 图, ${state.videos.length} 视频, ${state.gifs.length} GIF`, 'success');
 
-      // 获取下一批 cursor
-      const instructions = resp?.data?.user?.result?.timeline_v2?.timeline?.instructions || [];
-      let nextCursor = null;
-      for (const inst of instructions) {
-        if (inst.type === 'TimelineAddEntries') {
-          for (const entry of inst.entries || []) {
-            if (entry.content?.entryType === 'TimelineTimelineCursor' &&
-                entry.content.cursorType === 'Bottom') {
-              nextCursor = entry.content.value;
-            }
-          }
-        }
-      }
-      if (!nextCursor) {
+      cursor = getNextCursor(resp);
+      if (!cursor) {
         log('已到达时间线末尾', 'success');
         break;
       }
-      cursor = nextCursor;
 
-      // 节流：每页之间等待 1-2 秒，避免被风控
       await new Promise(r => setTimeout(r, 1500));
     }
 
-    log(`抓取完成！共 ${state.tweets.length} 条推文，${state.images.length} 张图，${state.videos.length} 个视频`, 'success');
+    // 保存 since_id
+    const newSinceId = lastSinceId || lastTweetId;
+    if (newSinceId) {
+      persistSinceId(newSinceId);
+      log(`💾 已保存 since_id: ${newSinceId}`, 'success');
+    }
+
+    log(`抓取完成！${state.tweets.length} 条推文，${state.images.length} 图，${state.videos.length} 视频，${state.gifs.length} GIF`, 'success');
     setProgress(100, '抓取完成', totalFetched, maxTweets);
     renderMedia();
   } catch (e) {
@@ -806,41 +1235,96 @@ function stopFetch() {
 }
 
 // =============================================================================
-// 渲染
+// 渲染 + 筛选
 // =============================================================================
+let currentTab = 'images';
+let filteredData = { images: [], videos: [], gifs: [] };
+
+function applyFilter() {
+  const keyword = $('searchInput').value.trim().toLowerCase();
+  const dateFrom = $('dateFrom').value;
+  const dateTo = $('dateTo').value;
+
+  const filterItem = (item) => {
+    if (keyword && !item.text.toLowerCase().includes(keyword) &&
+        !item.tweetId.includes(keyword)) {
+      return false;
+    }
+    if (dateFrom) {
+      const fromTs = new Date(dateFrom).getTime();
+      if (item.timestamp < fromTs) return false;
+    }
+    if (dateTo) {
+      const toTs = new Date(dateTo).getTime() + 86400000; // 包含当天
+      if (item.timestamp > toTs) return false;
+    }
+    return true;
+  };
+
+  filteredData.images = state.images.filter(filterItem);
+  filteredData.videos = state.videos.filter(filterItem);
+  filteredData.gifs = state.gifs.filter(filterItem);
+
+  $('imageCount').textContent = filteredData.images.length;
+  $('videoCount').textContent = filteredData.videos.length;
+  $('gifCount').textContent = filteredData.gifs.length;
+
+  renderLists();
+}
+
 function renderMedia() {
+  filteredData = { images: [...state.images], videos: [...state.videos], gifs: [...state.gifs] };
   $('imageCount').textContent = state.images.length;
   $('videoCount').textContent = state.videos.length;
+  $('gifCount').textContent = state.gifs.length;
+  renderLists();
+  $('mediaSection').style.display = 'block';
+}
 
+function renderLists() {
   const imageList = $('imageList');
   const videoList = $('videoList');
+  const gifList = $('gifList');
   const imageEmpty = $('imageEmpty');
   const videoEmpty = $('videoEmpty');
+  const gifEmpty = $('gifEmpty');
 
   imageList.innerHTML = '';
   videoList.innerHTML = '';
+  gifList.innerHTML = '';
+
+  // 全部用全局索引，以便 Lightbox 切换
+  let globalIdx = 0;
 
   // 图片
-  if (state.images.length === 0) {
+  if (filteredData.images.length === 0) {
     imageEmpty.style.display = 'block';
   } else {
     imageEmpty.style.display = 'none';
-    state.images.forEach((img, idx) => {
-      imageList.appendChild(createMediaCard(img, idx, 'image'));
+    filteredData.images.forEach((img) => {
+      imageList.appendChild(createMediaCard(img, globalIdx++, 'image'));
     });
   }
 
   // 视频
-  if (state.videos.length === 0) {
+  if (filteredData.videos.length === 0) {
     videoEmpty.style.display = 'block';
   } else {
     videoEmpty.style.display = 'none';
-    state.videos.forEach((vid, idx) => {
-      videoList.appendChild(createMediaCard(vid, idx, 'video'));
+    filteredData.videos.forEach((vid) => {
+      videoList.appendChild(createMediaCard(vid, globalIdx++, 'video'));
     });
   }
 
-  $('mediaSection').style.display = 'block';
+  // GIF
+  if (filteredData.gifs.length === 0) {
+    gifEmpty.style.display = 'block';
+  } else {
+    gifEmpty.style.display = 'none';
+    filteredData.gifs.forEach((gif) => {
+      gifList.appendChild(createMediaCard(gif, globalIdx++, 'gif'));
+    });
+  }
 }
 
 function createMediaCard(item, idx, kind) {
@@ -848,127 +1332,291 @@ function createMediaCard(item, idx, kind) {
   card.className = 'media-card';
 
   const isDownloaded = state.downloaded.has(item.url);
-  const date = new Date(item.createdAt).toLocaleDateString('zh-CN');
+  const date = formatDate(item.createdAt);
 
   // 缩略图
   const thumb = document.createElement('div');
   thumb.className = 'media-thumb';
+  thumb.dataset.idx = idx;
+  thumb.dataset.kind = kind;
+
+  // 类型徽章
+  if (kind === 'gif') {
+    const badge = document.createElement('div');
+    badge.className = 'media-type-badge gif';
+    badge.textContent = 'GIF';
+    thumb.appendChild(badge);
+  } else if (kind === 'video' && item.duration) {
+    const dur = document.createElement('div');
+    dur.className = 'media-duration';
+    dur.textContent = formatDuration(item.duration);
+    thumb.appendChild(dur);
+  }
+
   if (kind === 'image') {
     const img = document.createElement('img');
     img.src = item.preview;
     img.loading = 'lazy';
     img.alt = 'image';
+    img.onerror = () => { img.style.display = 'none'; };
     thumb.appendChild(img);
   } else {
-    // 视频：用第一帧作为预览
     const vid = document.createElement('video');
     vid.src = item.preview;
     vid.muted = true;
     vid.loop = true;
+    vid.preload = 'metadata';
     vid.onmouseenter = () => vid.play().catch(() => {});
-    vid.onmouseleave = () => vid.pause();
+    vid.onmouseleave = () => { vid.pause(); vid.currentTime = 0; };
     thumb.appendChild(vid);
   }
+
+  thumb.addEventListener('click', () => openLightbox(idx));
   card.appendChild(thumb);
 
   // 信息
   const info = document.createElement('div');
   info.className = 'media-info';
-  info.innerHTML = `
-    <a href="${item.tweetUrl}" target="_blank" class="media-tweet-link">查看原推文 #${item.tweetId}</a>
-    <div class="media-meta">
-      <span>📅 ${date}</span>
-      <span>${kind === 'image' ? '🖼️' : (item.type === 'gif' ? '🎞️' : '🎬')}</span>
-    </div>
-  `;
+
+  // 推文文本（如果有）
+  if (item.text) {
+    const text = document.createElement('div');
+    text.className = 'media-text';
+    text.textContent = item.text;
+    info.appendChild(text);
+  }
+
+  const link = document.createElement('a');
+  link.href = item.tweetUrl;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.className = 'media-tweet-link';
+  link.textContent = `查看原推文 #${item.tweetId}`;
+  info.appendChild(link);
+
+  const meta = document.createElement('div');
+  meta.className = 'media-meta';
+  let metaText = `📅 ${date}`;
+  if (kind === 'image' && item.width) {
+    metaText += ` · ${item.width}×${item.height}`;
+  } else if (kind === 'video' && item.bitrate) {
+    metaText += ` · ${Math.round(item.bitrate / 1000)}kbps`;
+  } else if (kind === 'gif') {
+    metaText += ` · GIF`;
+  }
+  meta.innerHTML = `<span>${metaText}</span><span>${kind === 'image' ? '🖼️' : (kind === 'video' ? '🎬' : '🎞️')}</span>`;
+  info.appendChild(meta);
+
   card.appendChild(info);
 
   // 下载按钮
   const btn = document.createElement('button');
   btn.className = 'btn-download' + (isDownloaded ? ' downloaded' : '');
-  btn.textContent = isDownloaded ? '✓ 已下载' : '⬇️ 下载';
+  btn.innerHTML = isDownloaded ? '✓ 已下载' : '⬇️ 下载';
   btn.disabled = isDownloaded;
-  btn.onclick = () => downloadMedia(item, btn);
+  btn.onclick = (e) => { e.stopPropagation(); downloadMedia(item, btn); };
   card.appendChild(btn);
 
   return card;
 }
 
 // =============================================================================
+// Lightbox
+// =============================================================================
+let lightboxItems = [];
+let lightboxIdx = 0;
+
+function openLightbox(idx) {
+  // 收集当前 tab + 全局所有 media
+  lightboxItems = [...filteredData.images, ...filteredData.videos, ...filteredData.gifs];
+  lightboxIdx = idx;
+  renderLightbox();
+  $('lightbox').classList.add('show');
+}
+
+function renderLightbox() {
+  if (lightboxIdx < 0 || lightboxIdx >= lightboxItems.length) return;
+  const item = lightboxItems[lightboxIdx];
+  const content = $('lightboxContent');
+  content.innerHTML = '';
+
+  if (item.type === 'image') {
+    const img = document.createElement('img');
+    img.src = item.url;
+    content.appendChild(img);
+  } else {
+    const vid = document.createElement('video');
+    vid.src = item.url;
+    vid.controls = true;
+    vid.autoplay = true;
+    content.appendChild(vid);
+  }
+
+  $('lightboxInfo').textContent = `${lightboxIdx + 1} / ${lightboxItems.length} · ${item.tweetUrl}`;
+}
+
+$('lightboxClose').onclick = () => {
+  $('lightbox').classList.remove('show');
+  $('lightboxContent').innerHTML = '';
+};
+$('lightboxPrev').onclick = () => {
+  lightboxIdx = (lightboxIdx - 1 + lightboxItems.length) % lightboxItems.length;
+  renderLightbox();
+};
+$('lightboxNext').onclick = () => {
+  lightboxIdx = (lightboxIdx + 1) % lightboxItems.length;
+  renderLightbox();
+};
+$('lightbox').onclick = (e) => {
+  if (e.target.id === 'lightbox') $('lightboxClose').click();
+};
+document.addEventListener('keydown', (e) => {
+  if (!$('lightbox').classList.contains('show')) return;
+  if (e.key === 'Escape') $('lightboxClose').click();
+  if (e.key === 'ArrowLeft') $('lightboxPrev').click();
+  if (e.key === 'ArrowRight') $('lightboxNext').click();
+});
+
+// =============================================================================
 // 下载
 // =============================================================================
-function sanitizeFilename(name) {
-  return name.replace(/[^\w\-_.]/g, '_').slice(0, 200);
+function getFilename(item) {
+  const ext = item.type === 'gif' || item.type === 'video' ? 'mp4' : 'jpg';
+  const date = item.createdAt.replace(/[^\w]/g, '_').slice(0, 10);
+  return sanitizeFilename(
+    `${state.username}_${item.tweetId}_${date}.${ext}`
+  );
 }
 
 function downloadMedia(item, btn) {
-  // 通过 a 标签触发浏览器原生下载
-  const ext = item.type === 'gif' ? 'mp4' : (item.type === 'video' ? 'mp4' : 'jpg');
-  const filename = sanitizeFilename(
-    `${state.username}_${item.tweetId}_${item.createdAt.replace(/[^\w]/g, '_').slice(0, 10)}.${ext}`
-  );
-
-  // 创建隐藏的 a 标签触发下载
   const a = document.createElement('a');
   a.href = item.url;
-  a.download = filename;
+  a.download = getFilename(item);
   a.target = '_blank';
   a.rel = 'noopener noreferrer';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
 
-  // 标记为已下载
   state.downloaded.add(item.url);
   persistDownloaded();
   btn.classList.add('downloaded');
-  btn.textContent = '✓ 已下载';
+  btn.innerHTML = '✓ 已下载';
   btn.disabled = true;
 }
 
 async function downloadAll() {
-  if (state.images.length + state.videos.length === 0) {
-    return toast('没有可下载的媒体', 'error');
-  }
-  if (!confirm(`将依次触发下载 ${state.images.length + state.videos.length} 个文件\n\n浏览器可能会询问是否允许多文件下载。`)) return;
+  const all = [...filteredData.images, ...filteredData.videos, ...filteredData.gifs];
+  if (all.length === 0) return toast('没有可下载的媒体', 'error');
+  if (!confirm(`将依次触发下载 ${all.length} 个文件\n\n浏览器可能会询问是否允许多文件下载。\n点击过下载按钮的文件会跳过。`)) return;
 
-  log('开始批量下载...');
-  const all = [...state.images, ...state.videos];
-  for (let i = 0; i < all.length; i++) {
-    const item = all[i];
-    if (state.downloaded.has(item.url)) continue;
-    const ext = item.type === 'gif' || item.type === 'video' ? 'mp4' : 'jpg';
-    const filename = sanitizeFilename(
-      `${state.username}_${item.tweetId}_${i + 1}.${ext}`
-    );
+  log(`开始批量下载 ${all.length} 个文件...`);
+  const originalText = $('downloadAllBtn').innerHTML;
+  let i = 0;
+  for (const item of all) {
+    if (state.downloaded.has(item.url)) { i++; continue; }
     const a = document.createElement('a');
     a.href = item.url;
-    a.download = filename;
+    a.download = getFilename(item);
     a.target = '_blank';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     state.downloaded.add(item.url);
-    persistDownloaded();
-    // 间隔 500ms 避免浏览器卡死
-    await new Promise(r => setTimeout(r, 500));
+    i++;
+    $('downloadAllBtn').innerHTML = `<span class="spinner"></span> ${i} / ${all.length}`;
+    await new Promise(r => setTimeout(r, 400));
   }
+  persistDownloaded();
+  $('downloadAllBtn').innerHTML = originalText;
   log('批量下载触发完成，请检查浏览器下载目录', 'success');
-  renderMedia();
   toast('下载已触发，请查看浏览器下载列表', 'success');
+  renderLists();
+}
+
+async function downloadZip() {
+  if (typeof JSZip === 'undefined') return toast('JSZip 未加载', 'error');
+  const all = [...filteredData.images, ...filteredData.videos, ...filteredData.gifs];
+  if (all.length === 0) return toast('没有可打包的媒体', 'error');
+
+  if (!confirm(`将下载 ${all.length} 个文件并打包为 ZIP（约 ${Math.round(all.length * 0.5)}MB）\n需要一定时间，请耐心等待。`)) return;
+
+  const zip = new JSZip();
+  log(`开始下载并打包 ${all.length} 个文件...`);
+  const originalText = $('downloadZipBtn').innerHTML;
+  $('downloadZipBtn').disabled = true;
+
+  let success = 0;
+  let failed = 0;
+  for (let i = 0; i < all.length; i++) {
+    const item = all[i];
+    const filename = getFilename(item);
+    try {
+      $('downloadZipBtn').innerHTML = `<span class="spinner"></span> ${i+1} / ${all.length}`;
+      const resp = await fetch(item.url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const blob = await resp.blob();
+      zip.file(filename, blob);
+      success++;
+    } catch (e) {
+      failed++;
+      log(`✗ 下载失败: ${filename} - ${e.message}`, 'error');
+    }
+  }
+
+  // 添加推文原文
+  const tweetTexts = state.tweets.map(t => ({
+    id: t.legacy?.id_str || t.rest_id,
+    created_at: t.legacy?.created_at,
+    text: (t.legacy?.full_text || '').replace(/https:\/\/t\.co\/\w+/g, '').trim(),
+    url: `https://x.com/i/status/${t.legacy?.id_str || t.rest_id}`,
+  }));
+  zip.file('tweets.json', JSON.stringify(tweetTexts, null, 2));
+
+  // 添加 README
+  const readme = `# X Media Downloader 备份\n\n用户: @${state.username}\n抓取时间: ${new Date().toISOString()}\n总推文: ${state.tweets.length}\n图片: ${state.images.length}\n视频: ${state.videos.length}\nGIF: ${state.gifs.length}\n`;
+  zip.file('README.txt', readme);
+
+  $('downloadZipBtn').innerHTML = originalText;
+  $('downloadZipBtn').disabled = false;
+
+  log(`打包完成: ${success} 成功, ${failed} 失败`, success > 0 ? 'success' : 'error');
+  toast('正在生成 ZIP...', 'success');
+
+  try {
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${state.username}_media_${Date.now()}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('ZIP 下载完成', 'success');
+  } catch (e) {
+    toast('ZIP 生成失败: ' + e.message, 'error');
+  }
 }
 
 function exportJson() {
   const data = {
     username: state.username,
+    userId: state.userId,
     fetchTime: new Date().toISOString(),
     stats: {
       tweets: state.tweets.length,
       images: state.images.length,
       videos: state.videos.length,
+      gifs: state.gifs.length,
     },
-    images: state.images,
-    videos: state.videos,
+    tweets: state.tweets.map(t => ({
+      id: t.legacy?.id_str || t.rest_id,
+      created_at: t.legacy?.created_at,
+      text: (t.legacy?.full_text || '').replace(/https:\/\/t\.co\/\w+/g, '').trim(),
+      url: `https://x.com/i/status/${t.legacy?.id_str || t.rest_id}`,
+    })),
+    images: filteredData.images,
+    videos: filteredData.videos,
+    gifs: filteredData.gifs,
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -980,13 +1628,66 @@ function exportJson() {
   toast('清单已导出', 'success');
 }
 
+function exportTweets() {
+  const data = state.tweets.map(t => {
+    const legacy = t.legacy || {};
+    return {
+      id: legacy.id_str,
+      created_at: legacy.created_at,
+      text: (legacy.full_text || '').replace(/https:\/\/t\.co\/\w+/g, '').trim(),
+      likes: legacy.favorite_count,
+      retweets: legacy.retweet_count,
+      replies: legacy.reply_count,
+      url: `https://x.com/i/status/${legacy.id_str}`,
+    };
+  });
+  const jsonl = data.map(d => JSON.stringify(d)).join('\n');
+  const blob = new Blob([jsonl], { type: 'application/x-ndjson' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${state.username}_tweets_${Date.now()}.jsonl`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('推文原文已导出', 'success');
+}
+
+function resetDownloaded() {
+  if (!confirm('确定要重置所有下载状态吗？\n所有卡片会重新变回"下载"按钮。')) return;
+  state.downloaded.clear();
+  persistDownloaded();
+  renderLists();
+  toast('已重置下载状态', 'success');
+}
+
 // =============================================================================
-// 初始化
+// 事件绑定
 // =============================================================================
 $('fetchBtn').addEventListener('click', startFetch);
 $('stopBtn').addEventListener('click', stopFetch);
 $('downloadAllBtn').addEventListener('click', downloadAll);
+$('downloadZipBtn').addEventListener('click', downloadZip);
 $('exportJsonBtn').addEventListener('click', exportJson);
+$('exportTweetsBtn').addEventListener('click', exportTweets);
+$('resetDownloadedBtn').addEventListener('click', resetDownloaded);
+
+$('searchInput').addEventListener('input', debounce(applyFilter, 300));
+$('dateFrom').addEventListener('change', applyFilter);
+$('dateTo').addEventListener('change', applyFilter);
+$('clearFilterBtn').addEventListener('click', () => {
+  $('searchInput').value = '';
+  $('dateFrom').value = '';
+  $('dateTo').value = '';
+  applyFilter();
+});
+
+function debounce(fn, delay) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+}
 
 loadPersisted();
 log('就绪 - 请粘贴 Cookie 和目标用户名', 'success');
