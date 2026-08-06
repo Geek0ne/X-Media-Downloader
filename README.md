@@ -9,13 +9,16 @@
 ## 📋 目录
 
 - [项目简介](#项目简介)
-- [v2.0 新特性](#v20-新特性)
+- [v3.0 新特性](#v30-新特性)
 - [核心特性](#核心特性)
 - [快速开始](#快速开始)
 - [使用教程](#使用教程)
 - [工作原理](#工作原理)
 - [开发目标需求清单](#开发目标需求清单)
 - [部署到免费平台](#部署到免费平台)
+- [本地服务器部署](#本地服务器部署)
+- [详细使用教程](#详细使用教程)
+- [故障排查](#故障排查)
 - [常见问题](#常见问题)
 - [注意事项](#注意事项)
 - [技术栈](#技术栈)
@@ -38,22 +41,36 @@
 
 ---
 
+## v3.0 新特性
+
+相比 v2.0，v3.0 新增以下功能：
+
+| 新功能 | 说明 |
+|--------|------|
+| 🆕 **多账号批量任务** | 一次添加多个账号，依次抓取 |
+| 🆕 **评论抓取** | 抓取某条推文的所有评论，单独 Tab 管理 |
+| 🆕 **PWA 支持** | 可安装到桌面/手机，支持离线访问 |
+| 🆕 **Service Worker** | 智能缓存策略，离线可用 |
+| 🆕 **桌面安装提示** | 浏览器原生安装对话框 |
+| 🆕 **单元测试** | vitest 测试框架，43 个测试覆盖核心逻辑 |
+| 🆕 **工具函数库** | 可测试的纯函数从主程序中抽离 |
+
 ## v2.0 新特性
 
 相比 v1.0，v2.0 新增以下功能：
 
 | 新功能 | 说明 |
 |--------|------|
-| 🆕 **增量抓取** | 自动记忆 `since_id`，只拉取新推文，节省时间 |
-| 🆕 **GIF 单独 Tab** | 图片 / 视频 / GIF 分开管理 |
-| 🆕 **Lightbox 预览** | 点击缩略图大图查看，左右键盘切换，ESC 关闭 |
-| 🆕 **ZIP 打包下载** | 一键打包所有媒体 + 推文原文 + README |
-| 🆕 **搜索 + 日期筛选** | 按推文文本、推文 ID、日期范围筛选 |
-| 🆕 **推文文本显示** | 卡片显示推文原文前 200 字符 |
-| 🆕 **导出推文原文** | JSONL 格式导出所有推文（含点赞/转发数） |
-| 🆕 **自动重试机制** | 限流 (429/503) 自动指数退避重试 |
-| 🆕 **深色/亮色主题** | 一键切换，护眼 |
-| 🆕 **键盘快捷键** | Lightbox 模式下 ← → ESC 操作 |
+| ✅ **增量抓取** | 自动记忆 `since_id`，只拉取新推文，节省时间 |
+| ✅ **GIF 单独 Tab** | 图片 / 视频 / GIF 分开管理 |
+| ✅ **Lightbox 预览** | 点击缩略图大图查看，左右键盘切换，ESC 关闭 |
+| ✅ **ZIP 打包下载** | 一键打包所有媒体 + 推文原文 + README |
+| ✅ **搜索 + 日期筛选** | 按推文文本、推文 ID、日期范围筛选 |
+| ✅ **推文文本显示** | 卡片显示推文原文前 200 字符 |
+| ✅ **导出推文原文** | JSONL 格式导出所有推文（含点赞/转发数） |
+| ✅ **自动重试机制** | 限流 (429/503) 自动指数退避重试 |
+| ✅ **深色/亮色主题** | 一键切换，护眼 |
+| ✅ **键盘快捷键** | Lightbox 模式下 ← → ESC 操作 |
 
 ---
 
@@ -438,7 +455,413 @@ vercel --prod
 
 ---
 
-## 贡献
+## 🖥️ 本地服务器部署
+
+如果你想部署到自己的服务器（局域网或公网），有以下几种方式：
+
+### 方式 1：Python 内置 HTTP 服务器（最简单）
+
+适合临时测试或局域网共享：
+
+```bash
+cd /root/Projects/x-media-downloader
+python3 -m http.server 8000
+```
+
+**访问：**
+- 本机：http://localhost:8000
+- 局域网：http://你的IP:8000
+
+**后台运行（Linux）：**
+
+```bash
+# 用 nohup 后台启动
+nohup python3 -m http.server 8000 > /tmp/xmd.log 2>&1 &
+
+# 查看进程
+ps aux | grep "http.server"
+```
+
+**停止：**
+```bash
+pkill -f "http.server 8000"
+```
+
+### 方式 2：Node.js serve（推荐）
+
+更稳定，支持热重载：
+
+```bash
+# 安装 serve
+npm install -g serve
+
+# 启动
+cd /root/Projects/x-media-downloader
+serve -p 8000 -s .
+```
+
+**-s 参数**：单页应用模式，所有路由都返回 index.html
+
+### 方式 3：Nginx（生产环境推荐）
+
+适合长期运行、需要 HTTPS、高并发：
+
+**1. 安装 Nginx（以 CentOS/AlmaLinux 为例）：**
+
+```bash
+sudo dnf install -y nginx
+```
+
+**2. 创建配置文件：**
+
+```bash
+sudo vim /etc/nginx/conf.d/xmd.conf
+```
+
+**内容：**
+
+```nginx
+server {
+    listen 8000;
+    server_name _;  # 或你的域名/局域网IP
+
+    root /root/Projects/x-media-downloader;
+    index index.html;
+
+    # 启用 gzip 压缩
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    # SPA 路由 fallback
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Service Worker 必须从根路径加载
+    location = /sw.js {
+        add_header Cache-Control "no-cache";
+        proxy_pass http://127.0.0.1:8000;
+    }
+
+    # 缓存静态资源
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+}
+```
+
+**3. 启动 Nginx：**
+
+```bash
+sudo nginx -t                    # 测试配置
+sudo systemctl start nginx
+sudo systemctl enable nginx     # 开机自启
+```
+
+**4. 开放防火墙：**
+
+```bash
+sudo firewall-cmd --permanent --add-port=8000/tcp
+sudo firewall-cmd --reload
+```
+
+**5. 访问：**
+
+- http://服务器IP:8000
+- http://yourdomain.com:8000（如有域名）
+
+### 方式 4：systemd 服务（开机自启）
+
+将 XMD 注册为 systemd 服务，开机自动启动：
+
+**1. 创建服务文件：**
+
+```bash
+sudo vim /etc/systemd/system/xmd.service
+```
+
+**内容：**
+
+```ini
+[Unit]
+Description=X Media Downloader
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/Projects/x-media-downloader
+ExecStart=/usr/bin/python3 -m http.server 8000
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/xmd.log
+StandardError=append:/var/log/xmd.log
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**2. 启动服务：**
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl start xmd
+sudo systemctl enable xmd
+sudo systemctl status xmd
+```
+
+**3. 查看日志：**
+
+```bash
+tail -f /var/log/xmd.log
+```
+
+### 方式 5：Docker 部署
+
+适合跨平台、隔离环境：
+
+**1. 创建 Dockerfile：**
+
+```dockerfile
+FROM nginx:alpine
+COPY . /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+**2. 构建并运行：**
+
+```bash
+cd /root/Projects/x-media-downloader
+docker build -t xmd:latest .
+docker run -d -p 8000:80 --name xmd --restart unless-stopped xmd:latest
+```
+
+**3. 查看状态：**
+
+```bash
+docker ps
+docker logs -f xmd
+```
+
+**4. 停止/删除：**
+
+```bash
+docker stop xmd
+docker rm xmd
+```
+
+### 方式 6：Docker Compose（多服务编排）
+
+**docker-compose.yml：**
+
+```yaml
+version: '3.8'
+services:
+  xmd:
+    build: .
+    container_name: xmd
+    ports:
+      - "8000:80"
+    restart: unless-stopped
+    volumes:
+      - ./logs:/var/log/nginx
+```
+
+**启动：**
+
+```bash
+docker-compose up -d
+```
+
+### 公网部署（HTTPS）
+
+如果需要公网访问 + HTTPS：
+
+**1. 申请 SSL 证书（Let's Encrypt）：**
+
+```bash
+sudo dnf install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d yourdomain.com
+```
+
+**2. 自动续期：**
+
+```bash
+sudo systemctl enable certbot-renew.timer
+```
+
+**3. 完整 Nginx HTTPS 配置：**
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name yourdomain.com;
+
+    ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    root /root/Projects/x-media-downloader;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+
+# HTTP 重定向到 HTTPS
+server {
+    listen 80;
+    server_name yourdomain.com;
+    return 301 https://$server_name$request_uri;
+}
+```
+
+---
+
+## 📖 详细使用教程
+
+### 场景一：单账号完整下载
+
+**目标**：下载某账号的所有图片和视频
+
+**步骤**：
+
+1. 打开工具 URL
+2. 粘贴 X Cookie（获取方式见上）
+3. 输入用户名（如 `elonmusk`）
+4. 设置最大推文数（建议先用 200 试水）
+5. 勾选「记住 Cookie」
+6. 点击「🚀 抓取媒体」
+7. 等待抓取完成
+8. 切换到「图片」/「视频」/「GIF」Tab
+9. 点击单个「⬇️ 下载」按钮或「📥 全部下载」
+
+### 场景二：增量监控某账号
+
+**目标**：每天抓取新增推文
+
+**步骤**：
+
+1. 第一次抓取：按「场景一」操作
+2. 工具自动保存 `since_id` 到 localStorage
+3. 以后每天：
+   - 重新打开工具
+   - 勾选「增量抓取」
+   - 点击「🚀 抓取媒体」
+4. 工具只会拉取新推文，节省时间
+
+### 场景三：批量下载多账号
+
+**目标**：一次抓取多个账号
+
+**步骤**：
+
+1. 在「多账号批量任务」输入框输入多个用户名
+   - 格式：`elonmusk, naval, paulg` 或 `elonmusk naval paulg`
+2. 点击「➕ 添加到队列」
+3. 检查任务列表
+4. 点击「▶ 开始批量抓取」
+5. 工具依次抓取每个账号（每个任务间隔 3 秒）
+6. 完成后会显示每个账号的统计信息
+
+### 场景四：备份到 ZIP
+
+**目标**：下载所有媒体 + 推文原文
+
+**步骤**：
+
+1. 完成抓取后
+2. 点击「📦 打包 ZIP 下载」
+3. 工具会：
+   - 下载所有图片/视频/GIF
+   - 包含推文原文 JSON
+   - 包含 README.txt 元数据
+4. 浏览器自动下载 ZIP 文件
+
+### 场景五：获取推文评论
+
+**目标**：抓取某条推文的所有评论
+
+**步骤**：
+
+1. 先抓取账号媒体（让工具知道推文列表）
+2. 找到要获取评论的推文 ID
+3. 切换到「💬 评论」Tab
+4. 点击「💬 抓取推文评论」
+5. 输入推文 ID
+6. 工具拉取评论并展示
+7. 可以点击「💬 导出评论」下载 JSONL
+
+### 场景六：离线使用（PWA）
+
+**目标**：在没有网络时也能用
+
+**步骤**：
+
+1. 首次访问时，浏览器会缓存静态资源
+2. 看到「📥 安装」按钮时点击
+3. 浏览器弹出安装提示，确认
+4. 应用会出现在桌面/开始菜单
+5. 离线时打开应用，仍可使用（除 X API 调用）
+
+### 数据存储位置
+
+所有数据都保存在**浏览器本地**（localStorage）：
+
+| 数据 | Key |
+|------|-----|
+| Cookie | `xCookie` |
+| 主题 | `theme` |
+| 下载记录 | `downloaded` |
+| since_id | `sinceId_<username>` |
+| 增量开关 | `rememberCookie` |
+
+**清理数据：**
+- 浏览器 DevTools → Application → Local Storage → 删除对应 key
+- 或浏览器「清除浏览数据」
+
+---
+
+## 🛠️ 故障排查
+
+### Q: 抓取时一直转圈，最终失败？
+
+**检查项：**
+1. Cookie 是否过期（重新登录 X 获取）
+2. 网络是否可达 `api.x.com`
+3. 是否被 X 限流（等待 10-30 分钟）
+4. 浏览器控制台（F12）是否有错误
+
+### Q: 图片/视频下载下来打不开？
+
+**原因：** X 已删除原媒体，或链接失效
+
+**解决：**
+- 重新抓取
+- 检查推文是否还存在
+
+### Q: 部署后其他人访问不到？
+
+**检查：**
+1. 防火墙是否开放端口：`sudo firewall-cmd --list-all`
+2. Nginx 是否监听正确 IP：`netstat -tlnp | grep nginx`
+3. 服务器安全组规则（云服务器）
+
+### Q: Service Worker 注册失败？
+
+**原因：** PWA 必须在 HTTPS 或 localhost 下才能注册
+
+**解决：**
+- 本地测试用 `http://localhost:8000`
+- 部署时配置 HTTPS
+
+---
+
+## 🤝 贡献
 
 ```bash
 git clone https://github.com/yourname/x-media-downloader.git

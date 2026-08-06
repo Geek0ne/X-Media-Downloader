@@ -31,3 +31,5 @@ yarn-debug.log*
 *.tmp
 *.bak
 *.swp
+tests/node_modules/
+tests/package-lock.json

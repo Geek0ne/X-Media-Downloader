@@ -4,7 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0f172a">
-<title>X Media Downloader · 推特媒体下载器 v2.0</title>
+<meta name="description" content="下载 X (Twitter) 账号的全部图片和视频，最高清晰度">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIgMTkyIj48cmVjdCB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgcng9IjMyIiBmaWxsPSIjMGIxMjMyIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtc2l6ZT0iMTIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj7wn42GPC90ZXh0Pjwvc3ZnPg==">
+<title>X Media Downloader · 推特媒体下载器 v3.0</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🐦%3C/text%3E%3C/svg%3E">
 <style>
 :root {
@@ -94,6 +99,23 @@ body {
   transition: all 0.2s;
 }
 .theme-toggle:hover { transform: rotate(20deg); border-color: var(--accent); }
+
+.install-btn {
+  position: absolute;
+  top: 30px;
+  right: 50px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+.install-btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
 
 /* Sections */
 .section {
@@ -480,6 +502,80 @@ body {
 .toast.success { border-color: var(--success); color: var(--success); }
 .toast.warn { border-color: var(--warning); color: var(--warning); }
 
+/* Batch queue */
+.batch-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+.batch-task {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+}
+.batch-task .status {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.batch-task .status.pending { background: var(--surface-2); color: var(--text-muted); }
+.batch-task .status.running { background: var(--accent); color: white; }
+.batch-task .status.done { background: var(--success); color: white; }
+.batch-task .status.failed { background: var(--error); color: white; }
+.batch-task .status.stopped { background: var(--warning); color: white; }
+.batch-task .username { flex: 1; font-weight: 600; }
+.batch-task .stats { font-size: 11px; color: var(--text-muted); }
+.batch-task .remove-btn {
+  background: none;
+  border: none;
+  color: var(--error);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+}
+.batch-task .remove-btn:hover { color: #dc2626; }
+
+/* Comments tab */
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 600px;
+  overflow-y: auto;
+}
+.comment-card {
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.comment-author {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.comment-text {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+  margin-bottom: 6px;
+  word-break: break-word;
+}
+.comment-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 12px;
+}
+
 /* Lightbox */
 .lightbox {
   position: fixed;
@@ -582,6 +678,7 @@ body {
     <h1>🐦 X Media Downloader</h1>
     <p>下载 X (Twitter) 账号的全部图片和视频 · 最高清晰度 · 零后端</p>
     <button id="themeToggle" class="theme-toggle" title="切换主题">🌙</button>
+    <button id="installBtn" class="install-btn" title="安装为桌面应用" style="display: none;">📥 安装</button>
   </div>
 
   <!-- Cookie 配置 -->
@@ -614,6 +711,18 @@ body {
     <div id="logArea" class="log" style="display: none;"></div>
   </div>
 
+  <!-- 多账号任务管理 -->
+  <div class="section" id="batchSection">
+    <div class="section-title"><span class="num">2.5</span>多账号批量任务</div>
+    <div class="form-row">
+      <input type="text" id="batchUsernamesInput" class="input" placeholder="多个用户名用逗号或空格分隔，如 elonmusk, naval, paulg">
+      <button id="addBatchBtn" class="btn">➕ 添加到队列</button>
+      <button id="runBatchBtn" class="btn btn-success">▶ 开始批量抓取</button>
+      <button id="clearBatchBtn" class="btn btn-danger btn-sm">清空队列</button>
+    </div>
+    <div id="batchQueue" class="batch-queue"></div>
+  </div>
+
   <!-- 媒体列表 -->
   <div class="section" id="mediaSection" style="display: none;">
     <div class="section-title"><span class="num">3</span>媒体资源</div>
@@ -634,6 +743,9 @@ body {
       </button>
       <button class="tab" data-tab="gifs">
         🎞️ GIF <span class="tab-badge" id="gifCount">0</span>
+      </button>
+      <button class="tab" data-tab="comments">
+        💬 评论 <span class="tab-badge" id="commentCount">0</span>
       </button>
     </div>
 
@@ -661,11 +773,24 @@ body {
       </div>
     </div>
 
+    <div class="tab-content" data-tab="comments">
+      <div style="margin-bottom: 12px;">
+        <button id="fetchCommentsBtn" class="btn btn-sm">💬 抓取推文评论</button>
+        <span style="font-size: 12px; color: var(--text-muted); margin-left: 10px;">输入推文 ID 获取该推文的所有评论</span>
+      </div>
+      <div id="commentList" class="comments-list"></div>
+      <div id="commentEmpty" class="empty-state">
+        <div class="icon">💬</div>
+        <p>暂无评论，点击上方按钮抓取</p>
+      </div>
+    </div>
+
     <div class="action-bar">
       <button id="downloadAllBtn" class="btn">📥 全部下载</button>
       <button id="downloadZipBtn" class="btn btn-success">📦 打包 ZIP 下载</button>
       <button id="exportJsonBtn" class="btn btn-secondary">📋 导出清单</button>
       <button id="exportTweetsBtn" class="btn btn-secondary">📝 导出推文原文</button>
+      <button id="exportCommentsBtn" class="btn btn-secondary">💬 导出评论</button>
       <button id="resetDownloadedBtn" class="btn btn-danger btn-sm">重置下载状态</button>
     </div>
   </div>
@@ -697,6 +822,7 @@ const state = {
   username: '',
   maxTweets: 200,
   tweets: [],
+  comments: [],
   images: [],
   videos: [],
   gifs: [],
@@ -707,9 +833,16 @@ const state = {
   sinceId: null,
   retryCount: 0,
   maxRetries: 3,
+  // 多账号队列
+  batchQueue: [],  // [{id, username, status, stats, result}]
+  batchRunning: false,
+  currentAccountData: null,  // 当前账号的所有数据（切换时保存/恢复）
 };
 
 const $ = (id) => document.getElementById(id);
+
+// 多账号数据存档：username -> {tweets, images, videos, gifs, sinceId}
+const accountArchive = {};
 
 // =============================================================================
 // 持久化
@@ -1277,6 +1410,8 @@ function renderMedia() {
   $('imageCount').textContent = state.images.length;
   $('videoCount').textContent = state.videos.length;
   $('gifCount').textContent = state.gifs.length;
+  const commentCountEl = $('commentCount');
+  if (commentCountEl) commentCountEl.textContent = state.comments.length;
   renderLists();
   $('mediaSection').style.display = 'block';
 }
@@ -1661,6 +1796,382 @@ function resetDownloaded() {
 }
 
 // =============================================================================
+// 多账号批量任务
+// =============================================================================
+function addBatchTasks() {
+  const input = $('batchUsernamesInput').value.trim();
+  if (!input) return toast('请输入用户名', 'error');
+  const usernames = input.split(/[\s,;]+/).map(u => u.trim().replace(/^@/, '')).filter(Boolean);
+  for (const username of usernames) {
+    // 检查是否已在队列中
+    if (state.batchQueue.find(t => t.username === username)) continue;
+    state.batchQueue.push({
+      id: Date.now() + Math.random(),
+      username,
+      status: 'pending',
+      stats: { tweets: 0, images: 0, videos: 0, gifs: 0 },
+      error: null,
+    });
+  }
+  $('batchUsernamesInput').value = '';
+  renderBatchQueue();
+  toast(`已添加 ${usernames.length} 个任务`, 'success');
+}
+
+function removeBatchTask(id) {
+  state.batchQueue = state.batchQueue.filter(t => t.id !== id);
+  renderBatchQueue();
+}
+
+function clearBatchQueue() {
+  if (state.batchQueue.length === 0) return;
+  if (!confirm(`确定清空 ${state.batchQueue.length} 个任务？`)) return;
+  state.batchQueue = [];
+  renderBatchQueue();
+}
+
+function renderBatchQueue() {
+  const container = $('batchQueue');
+  if (state.batchQueue.length === 0) {
+    container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 16px; font-size: 12px;">队列为空，添加用户名开始批量任务</div>';
+    return;
+  }
+  container.innerHTML = '';
+  for (const task of state.batchQueue) {
+    const el = document.createElement('div');
+    el.className = 'batch-task';
+    const stats = task.stats;
+    const statsText = task.status === 'done'
+      ? `${stats.tweets} 推文 · ${stats.images} 图 · ${stats.videos} 视频 · ${stats.gifs} GIF`
+      : task.status === 'failed' ? `失败: ${task.error}` : '';
+    el.innerHTML = `
+      <span class="status ${task.status}">${task.status}</span>
+      <span class="username">@${task.username}</span>
+      <span class="stats">${statsText}</span>
+      <button class="remove-btn" data-id="${task.id}" title="移除">✕</button>
+    `;
+    container.appendChild(el);
+  }
+  container.querySelectorAll('.remove-btn').forEach(btn => {
+    btn.onclick = () => removeBatchTask(parseFloat(btn.dataset.id));
+  });
+}
+
+async function runBatchTasks() {
+  if (state.batchRunning) return toast('批量任务已在运行中', 'warn');
+  const pending = state.batchQueue.filter(t => t.status === 'pending' || t.status === 'stopped');
+  if (pending.length === 0) return toast('队列中没有待执行任务', 'error');
+  if (!state.cookie && !$('cookieInput').value.trim()) return toast('请先配置 Cookie', 'error');
+
+  state.batchRunning = true;
+  $('runBatchBtn').disabled = true;
+  $('addBatchBtn').disabled = true;
+  $('clearBatchBtn').disabled = true;
+
+  for (const task of pending) {
+    if (!state.batchRunning) break;
+    task.status = 'running';
+    task.error = null;
+    renderBatchQueue();
+    log(`[批量] 开始抓取 @${task.username}...`);
+    try {
+      // 保存当前账号的数据
+      if (state.username) {
+        accountArchive[state.username] = {
+          tweets: [...state.tweets],
+          images: [...state.images],
+          videos: [...state.videos],
+          gifs: [...state.gifs],
+        };
+      }
+      // 设置目标用户名
+      state.username = task.username;
+      state.cookie = $('cookieInput').value.trim();
+      $('usernameInput').value = task.username;
+      // 恢复该账号的存档（用于增量抓取）
+      const archive = accountArchive[task.username];
+      if (archive && $('incrementalMode').checked) {
+        // 检查 since_id
+        const sinceKey = `sinceId_${task.username}`;
+        const archivedSince = localStorage.getItem(sinceKey);
+        if (archivedSince) state.sinceId = archivedSince;
+      } else {
+        // 全新抓取，清空
+        state.tweets = [];
+        state.images = [];
+        state.videos = [];
+        state.gifs = [];
+        state.sinceId = null;
+      }
+      // 执行抓取
+      await runSingleFetch();
+      // 更新任务结果
+      task.status = 'done';
+      task.stats = {
+        tweets: state.tweets.length,
+        images: state.images.length,
+        videos: state.videos.length,
+        gifs: state.gifs.length,
+      };
+      // 存档该账号
+      accountArchive[task.username] = {
+        tweets: [...state.tweets],
+        images: [...state.images],
+        videos: [...state.videos],
+        gifs: [...state.gifs],
+      };
+      log(`[批量] @${task.username} 完成: ${task.stats.tweets} 推文, ${task.stats.images} 图, ${task.stats.videos} 视频, ${task.stats.gifs} GIF`, 'success');
+    } catch (e) {
+      task.status = e.name === 'AbortError' ? 'stopped' : 'failed';
+      task.error = e.message;
+      log(`[批量] @${task.username} 失败: ${e.message}`, 'error');
+    }
+    renderBatchQueue();
+    // 任务间隔，避免风控
+    if (state.batchRunning) await new Promise(r => setTimeout(r, 3000));
+  }
+
+  state.batchRunning = false;
+  $('runBatchBtn').disabled = false;
+  $('addBatchBtn').disabled = false;
+  $('clearBatchBtn').disabled = false;
+  renderMedia();
+  toast('批量任务完成', 'success');
+}
+
+// 单个抓取（可独立调用）
+async function runSingleFetch() {
+  return new Promise(async (resolve, reject) => {
+    state.isFetching = true;
+    state.abortController = new AbortController();
+    try {
+      log(`开始抓取用户 @${state.username}...`);
+      setProgress(0, '正在获取用户信息...', 0, state.maxTweets);
+      const user = await getUserId(state.username, state.cookie);
+      state.userId = user.id;
+      log(`✓ 找到用户: ${user.name} (@${user.screenName})`, 'success');
+      let cursor = null;
+      let totalFetched = 0;
+      let pageCount = 0;
+      let lastTweetId = state.sinceId;
+      let lastSinceId = state.sinceId;
+      const incremental = $('incrementalMode').checked && state.sinceId;
+      const targetMax = state.maxTweets;
+      while (totalFetched < targetMax && state.isFetching) {
+        const remaining = targetMax - totalFetched;
+        const count = Math.min(remaining, 40);
+        pageCount++;
+        log(`第 ${pageCount} 页请求 ${count} 条推文...`);
+        const resp = await getUserMedia(user.id, state.cookie, count, cursor);
+        const tweets = flattenTweets(resp);
+        if (tweets.length === 0) { log('已无更多推文', 'success'); break; }
+        if (incremental) {
+          const filtered = [];
+          for (const t of tweets) {
+            const id = t.legacy?.id_str || t.rest_id;
+            if (id && BigInt(id) > BigInt(state.sinceId)) {
+              filtered.push(t);
+              if (!lastSinceId || BigInt(id) > BigInt(lastSinceId)) lastSinceId = id;
+            } else {
+              log(`📍 遇到旧推文 (${id})，停止抓取`, 'success');
+              state.isFetching = false;
+              break;
+            }
+          }
+          if (filtered.length === 0) break;
+          state.tweets.push(...filtered);
+          const media = extractMedia(filtered);
+          state.images.push(...media.images);
+          state.videos.push(...media.videos);
+          state.gifs.push(...media.gifs);
+          totalFetched += filtered.length;
+          if (!state.isFetching) break;
+        } else {
+          state.tweets.push(...tweets);
+          for (const t of tweets) {
+            const id = t.legacy?.id_str || t.rest_id;
+            if (id && (!lastTweetId || BigInt(id) > BigInt(lastTweetId))) lastTweetId = id;
+          }
+          const media = extractMedia(tweets);
+          state.images.push(...media.images);
+          state.videos.push(...media.videos);
+          state.gifs.push(...media.gifs);
+          totalFetched += tweets.length;
+        }
+        setProgress(Math.min((totalFetched / targetMax) * 100, 99), `已抓取 ${tweets.length} 条`, totalFetched, targetMax);
+        log(`✓ 累计: ${totalFetched} 条, ${state.images.length} 图, ${state.videos.length} 视频, ${state.gifs.length} GIF`, 'success');
+        cursor = getNextCursor(resp);
+        if (!cursor) { log('已到达末尾', 'success'); break; }
+        await new Promise(r => setTimeout(r, 1500));
+      }
+      const newSinceId = lastSinceId || lastTweetId;
+      if (newSinceId) {
+        // 按账号分开保存 since_id
+        localStorage.setItem(`sinceId_${state.username}`, newSinceId);
+        log(`💾 已保存 since_id: ${newSinceId}`, 'success');
+      }
+      log(`完成: ${state.tweets.length} 推文, ${state.images.length} 图, ${state.videos.length} 视频, ${state.gifs.length} GIF`, 'success');
+      setProgress(100, '完成', totalFetched, targetMax);
+      resolve();
+    } catch (e) {
+      reject(e);
+    } finally {
+      state.isFetching = false;
+    }
+  });
+}
+
+// =============================================================================
+// 评论抓取
+// =============================================================================
+async function fetchComments(tweetId) {
+  const variables = {
+    focalTweetId: tweetId,
+    withCommunity: true,
+    includePromotedContent: false,
+    withVoice: true,
+  };
+  const features = {
+    responsive_web_graphql_exclude_directive_enabled: true,
+    verified_phone_label_enabled: false,
+    creator_subscriptions_tweet_preview_api_enabled: true,
+    responsive_web_graphql_timeline_navigation_enabled: true,
+    responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
+    tweet_awards_web_tipping_enabled: false,
+    freedom_of_speech_not_reach_fetch_enabled: true,
+    standardized_nudges_misinfo: true,
+    tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled: true,
+    rweb_video_timestamps_enabled: true,
+    longform_notetweets_rich_text_read_enabled: true,
+    longform_notetweets_inline_media_enabled: true,
+    responsive_web_enhance_cards_enabled: false,
+  };
+  const url = `https://api.x.com/graphql/BoHLKeBvibdYDiJON7oqTg/TweetDetail?variables=${encodeURIComponent(JSON.stringify(variables))}&features=${encodeURIComponent(JSON.stringify(features))}`;
+  const resp = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'authorization': `Bearer ${BEARER_TOKEN}`,
+      'cookie': $('cookieInput').value.trim(),
+      'x-twitter-active-user': 'yes',
+      'x-twitter-client-language': 'en',
+    },
+    signal: state.abortController?.signal,
+  });
+  if (!resp.ok) throw new Error(`TweetDetail ${resp.status}`);
+  return await resp.json();
+}
+
+function extractComments(timeline) {
+  const comments = [];
+  const instructions = timeline?.data?.tweet_result?.tweetResult?.timeline?.instructions || [];
+  for (const inst of instructions) {
+    if (inst.type === 'TimelineAddEntries') {
+      for (const entry of inst.entries || []) {
+        const content = entry.content;
+        if (content?.entryType === 'TimelineTimelineItem') {
+          const tweet = content.itemContent?.tweet_results?.result;
+          if (!tweet) continue;
+          const legacy = tweet.legacy || {};
+          const user = tweet.core?.user_results?.result?.legacy;
+          comments.push({
+            id: legacy.id_str,
+            author: user?.screen_name || 'unknown',
+            authorName: user?.name || '',
+            text: (legacy.full_text || '').replace(/https:\/\/t\.co\/\w+/g, '').trim(),
+            likes: legacy.favorite_count || 0,
+            retweets: legacy.retweet_count || 0,
+            createdAt: legacy.created_at,
+            timestamp: new Date(legacy.created_at || 0).getTime(),
+          });
+        }
+      }
+    }
+  }
+  return comments;
+}
+
+async function fetchAllComments(tweetId, max = 100) {
+  state.comments = [];
+  const all = [];
+  let cursor = null;
+  let count = 0;
+  while (count < max) {
+    const resp = await fetchComments(tweetId, cursor);
+    const comments = extractComments(resp);
+    all.push(...comments);
+    count += comments.length;
+    // 获取下一批
+    const instructions = resp?.data?.tweet_result?.tweetResult?.timeline?.instructions || [];
+    let nextCursor = null;
+    for (const inst of instructions) {
+      if (inst.type === 'TimelineAddEntries') {
+        for (const entry of inst.entries || []) {
+          if (entry.content?.entryType === 'TimelineTimelineCursor' &&
+              entry.content.cursorType === 'Bottom') {
+            nextCursor = entry.content.value;
+          }
+        }
+      }
+    }
+    if (!nextCursor || comments.length === 0) break;
+    cursor = nextCursor;
+    await new Promise(r => setTimeout(r, 1500));
+  }
+  state.comments = all;
+  return all;
+}
+
+function renderComments() {
+  const list = $('commentList');
+  const empty = $('commentEmpty');
+  if (!list) return;
+  list.innerHTML = '';
+  if (state.comments.length === 0) {
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  state.comments.forEach(c => {
+    const card = document.createElement('div');
+    card.className = 'comment-card';
+    card.innerHTML = `
+      <div class="comment-author">@${c.author} · ${c.authorName}</div>
+      <div class="comment-text">${escapeHtml(c.text)}</div>
+      <div class="comment-meta">
+        <span>📅 ${formatDate(c.createdAt)}</span>
+        <span>❤️ ${c.likes}</span>
+        <span>🔁 ${c.retweets}</span>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function fetchCommentsForCurrentAccount() {
+  if (state.images.length === 0 && state.videos.length === 0 && state.gifs.length === 0) {
+    return toast('请先抓取媒体，再选择一条推文获取评论', 'error');
+  }
+  const tweetId = prompt('输入要获取评论的推文 ID:', state.tweets[0]?.legacy?.id_str || '');
+  if (!tweetId) return;
+  log(`开始抓取推文 ${tweetId} 的评论...`);
+  try {
+    const comments = await fetchAllComments(tweetId, 100);
+    log(`✓ 获取到 ${comments.length} 条评论`, 'success');
+    renderComments();
+    // 切换到评论 tab
+    document.querySelector('.tab[data-tab="comments"]').click();
+    toast(`获取到 ${comments.length} 条评论`, 'success');
+  } catch (e) {
+    log(`评论抓取失败: ${e.message}`, 'error');
+    toast('评论抓取失败: ' + e.message, 'error');
+  }
+}
+
+// =============================================================================
 // 事件绑定
 // =============================================================================
 $('fetchBtn').addEventListener('click', startFetch);
@@ -1669,7 +2180,25 @@ $('downloadAllBtn').addEventListener('click', downloadAll);
 $('downloadZipBtn').addEventListener('click', downloadZip);
 $('exportJsonBtn').addEventListener('click', exportJson);
 $('exportTweetsBtn').addEventListener('click', exportTweets);
+$('exportCommentsBtn').addEventListener('click', exportComments);
 $('resetDownloadedBtn').addEventListener('click', resetDownloaded);
+$('addBatchBtn').addEventListener('click', addBatchTasks);
+$('runBatchBtn').addEventListener('click', runBatchTasks);
+$('clearBatchBtn').addEventListener('click', clearBatchQueue);
+$('fetchCommentsBtn').addEventListener('click', fetchCommentsForCurrentAccount);
+
+function exportComments() {
+  if (state.comments.length === 0) return toast('暂无评论', 'error');
+  const jsonl = state.comments.map(c => JSON.stringify(c)).join('\n');
+  const blob = new Blob([jsonl], { type: 'application/x-ndjson' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `comments_${Date.now()}.jsonl`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('评论已导出', 'success');
+}
 
 $('searchInput').addEventListener('input', debounce(applyFilter, 300));
 $('dateFrom').addEventListener('change', applyFilter);
@@ -1690,6 +2219,57 @@ function debounce(fn, delay) {
 }
 
 loadPersisted();
+renderBatchQueue();
+
+// 注册 Service Worker（PWA 离线支持）
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => {
+        console.log('[PWA] Service Worker registered:', reg.scope);
+        // 检查更新
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              toast('新版本可用，刷新页面即可更新', 'success');
+            }
+          });
+        });
+      })
+      .catch(err => {
+        console.warn('[PWA] Service Worker 注册失败:', err);
+      });
+  });
+}
+
+// PWA 安装提示
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  const installBtn = $('installBtn');
+  if (installBtn) installBtn.style.display = 'block';
+});
+
+if ($('installBtn')) {
+  $('installBtn').addEventListener('click', async () => {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    const { outcome } = await deferredInstallPrompt.userChoice;
+    if (outcome === 'accepted') {
+      toast('已安装为桌面应用', 'success');
+    }
+    deferredInstallPrompt = null;
+    $('installBtn').style.display = 'none';
+  });
+}
+
+window.addEventListener('appinstalled', () => {
+  $('installBtn').style.display = 'none';
+  toast('已成功安装', 'success');
+});
+
 log('就绪 - 请粘贴 Cookie 和目标用户名', 'success');
 </script>
 </body>
