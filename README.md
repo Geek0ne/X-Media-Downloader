@@ -20,6 +20,7 @@
 - [详细使用教程](#详细使用教程)
 - [故障排查](#故障排查)
 - [常见问题](#常见问题)
+- [部署兼容性矩阵](#部署兼容性矩阵)
 - [注意事项](#注意事项)
 - [技术栈](#技术栈)
 - [开发路线](#开发路线)
@@ -872,6 +873,59 @@ server {
 ### 自动测试（GitHub Actions）
 
 每次 push 到 master 时，GitHub Actions 会自动运行 43 个单元测试。结果显示在仓库的 Actions 标签页。
+
+---
+
+## 📊 部署兼容性矩阵
+
+下表详细列出每个部署平台的兼容程度和所需配置：
+
+| 平台 | 兼容性 | 配置文件 | 部署方式 | 难度 | 备注 |
+|------|--------|---------|---------|------|------|
+| **Netlify** | 🟢 完美 | `netlify.toml` + `_redirects` + `_headers` | GitHub 集成 | ⭐ | 最简单，一键部署 |
+| **Cloudflare Pages** | 🟢 完美 | `_headers` + `_redirects` | GitHub 集成 | ⭐ | 国内访问快 |
+| **Vercel** | 🟢 完美 | `vercel.json` | GitHub 集成 | ⭐ | 自动 HTTPS |
+| **EdgeOne Pages** | 🟢 完美 | `_redirects` + 控制台规则 | GitHub 集成 | ⭐⭐ | 国内访问最快，需手动加 1 条规则 |
+| **腾讯云开发** | 🟢 良好 | 控制台手动配 | 手动上传 | ⭐⭐ | 国内访问好 |
+| **阿里云 OSS 静态网站** | 🟡 良好 | 需手动配 SPA | 手动上传 | ⭐⭐ | 需配置默认首页 |
+| **AWS S3 + CloudFront** | 🟡 良好 | 需手动配 | CLI / 控制台 | ⭐⭐⭐ | 灵活但复杂 |
+| **Azure Static Web Apps** | 🟡 良好 | 需 `staticwebapp.config.json` | GitHub 集成 | ⭐⭐ | 微软生态 |
+| **GitHub Pages** | 🟠 限制 | 无 | GitHub 集成 | ⭐ | ⚠️ PWA 部分受限 |
+| **Python HTTP** | 🟢 完美 | - | 命令行 | ⭐ | 单页应用够用 |
+| **Node.js serve** | 🟢 完美 | - | 命令行 | ⭐ | `-s` 启用 SPA |
+| **Nginx** | 🟢 完美 | server block | 配置文件 | ⭐⭐ | 生产环境首选 |
+| **systemd** | 🟢 完美 | service unit | 配置文件 | ⭐⭐ | 开机自启 |
+| **Caddy** | 🟢 完美 | Caddyfile | 配置文件 | ⭐ | 自动 HTTPS |
+| **Docker** | 🟢 完美 | Dockerfile | 镜像构建 | ⭐⭐ | 跨平台一致 |
+| **Docker Compose** | 🟢 完美 | docker-compose.yml | 容器编排 | ⭐⭐ | 多服务编排 |
+
+### 图例说明
+
+- 🟢 **完美** — 所有功能（包含 PWA）正常工作
+- 🟡 **良好** — 核心功能正常，PWA 部分功能需要额外配置
+- 🟠 **限制** — 部分高级功能不工作（如 Service Worker）
+
+### 各平台特性对比
+
+| 特性 | Netlify | Cloudflare | Vercel | EdgeOne | GitHub Pages | Nginx |
+|------|---------|------------|--------|---------|--------------|-------|
+| 免费额度 | 100GB/月 | 无限 | 100GB/月 | 30GB/月 | 1GB | 自有 |
+| 自定义域名 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 自动 HTTPS | ✅ | ✅ | ✅ | ✅ | ✅ | ✅（需配置）|
+| 全球 CDN | ✅ | ✅ | ✅ | ✅ | ❌ | 需 CloudFlare |
+| 国内访问速度 | ⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐⭐ | ⭐ | 自建 |
+| SPA 支持 | ✅ | ✅ | ✅ | 手动配 | ❌ | 手动配 |
+| Service Worker | ✅ | ✅ | ✅ | 手动配 | ⚠️ | ✅ |
+| 自动部署 | ✅ | ✅ | ✅ | ✅ | ✅ | 手动 |
+| 预览部署 | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+
+### 推荐方案
+
+**追求最简单的部署体验**：Netlify（GitHub 集成，3 步搞定）
+**追求国内访问速度**：EdgeOne Pages 或 Cloudflare Pages
+**追求全功能 PWA 离线**：Netlify / Cloudflare / Vercel / Nginx
+**自有服务器**：Nginx + systemd + 域名
+**快速预览测试**：Python `http.server` 或 Node `serve`
 
 ---
 
