@@ -1,8 +1,8 @@
-# X Media Downloader · 推特媒体下载器 v2.0
+# X Media Downloader · 推特媒体下载器 v3.0
 
-> 下载 X (Twitter) 账号的全部图片和视频，最高清晰度，零后端、纯静态、免费部署。
+> 下载 X (Twitter) 账号的全部图片和视频，最高清晰度，零后端、纯静态、免费部署。支持多账号批量抓取、评论抓取、PWA 离线使用。
 
-![License](https://img.shields.io/badge/license-MIT-blue) ![No Backend](https://img.shields.io/badge/backend-none-green) ![Free Deploy](https://img.shields.io/badge/deploy-Netlify%20%7C%20CF%20Pages-brightgreen) ![v2.0](https://img.shields.io/badge/version-2.0-orange)
+![License](https://img.shields.io/badge/license-MIT-blue) ![No Backend](https://img.shields.io/badge/backend-none-green) ![Free Deploy](https://img.shields.io/badge/deploy-Netlify%20%7C%20CF%20Pages-brightgreen) ![v3.0](https://img.shields.io/badge/version-3.0-orange) ![PWA](https://img.shields.io/badge/PWA-supported-blueviolet)
 
 ---
 
@@ -823,6 +823,55 @@ server {
 **清理数据：**
 - 浏览器 DevTools → Application → Local Storage → 删除对应 key
 - 或浏览器「清除浏览数据」
+
+---
+
+## 🌍 多平台部署配置
+
+项目自带各平台部署配置文件，**选一个平台就能用**：
+
+| 文件 | 适配平台 |
+|------|---------|
+| `netlify.toml` + `_redirects` + `_headers` | Netlify（完整） |
+| `_headers` + `_redirects` | Cloudflare Pages |
+| `vercel.json` | Vercel |
+| `.github/workflows/test.yml` | GitHub Actions（自动跑测试） |
+| 控制台手动配 | EdgeOne Pages / 腾讯云开发 |
+
+### 各平台部署速查
+
+**Netlify**：
+1. 登录 https://app.netlify.com → Add new site → Import from Git
+2. 选 `X-Media-Downloader` 仓库
+3. Build command 留空，Publish directory 留空
+4. Deploy
+
+**Cloudflare Pages**：
+1. 登录 https://dash.cloudflare.com → Workers & Pages → Create
+2. Pages → Connect to Git → 选仓库
+3. Build command 留空，Build output 填 `.`
+4. Save and Deploy
+
+**Vercel**：
+1. 登录 https://vercel.com → Add New → Project
+2. Import `X-Media-Downloader` 仓库
+3. Framework: Other
+4. Deploy
+
+**EdgeOne Pages**：
+1. 登录 https://console.cloud.tencent.com/edgeone/pages
+2. 创建项目 → 连接 GitHub → 选仓库
+3. Build command 留空，Output: `.`
+4. 在控制台手动加 SPA 重定向规则：`(.*) → /index.html`
+5. 手动加 SW headers：`/sw.js` → `Cache-Control: no-cache`
+
+**GitHub Pages**（不推荐 PWA）：
+1. 仓库 Settings → Pages → Source: Deploy from a branch → master / root
+2. ⚠️ GitHub Pages **不支持 SW 缓存控制**，Service Worker 可能不工作
+
+### 自动测试（GitHub Actions）
+
+每次 push 到 master 时，GitHub Actions 会自动运行 43 个单元测试。结果显示在仓库的 Actions 标签页。
 
 ---
 
