@@ -1,7 +1,7 @@
 // X Media Downloader - Service Worker
 // 策略：network-first（API 请求），cache-first（静态资源）
 
-const CACHE_VERSION = 'xmd-v3.0.0';
+const CACHE_VERSION = 'xmd-v3.0.1';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
@@ -33,7 +33,10 @@ self.addEventListener('activate', event => {
       .then(cacheNames => Promise.all(
         cacheNames
           .filter(name => name.startsWith('xmd-') && name !== STATIC_CACHE && name !== RUNTIME_CACHE)
-          .map(name => caches.delete(name))
+          .map(name => {
+            console.log('[SW] 删除旧缓存:', name);
+            return caches.delete(name);
+          })
       ))
       .then(() => self.clients.claim())
   );
