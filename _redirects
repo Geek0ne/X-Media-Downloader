@@ -1,0 +1,3 @@
+# Netlify _redirects - 简易 SPA fallback
+# 所有未匹配请求返回 index.html（PWA 需要）
+/*    /index.html   200
