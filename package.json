@@ -10,7 +10,7 @@
     "test:watch": "npm run test:watch --prefix tests",
     "deploy": "netlify deploy --prod"
   },
-  "author": "巴雷特",
+  "author": "Geek0ne",
   "license": "MIT",
   "keywords": ["twitter", "x", "media", "downloader"]
 }

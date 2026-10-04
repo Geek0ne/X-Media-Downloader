@@ -98,8 +98,8 @@
 ### 方式 1：本地运行
 
 ```bash
-git clone https://github.com/yourname/x-media-downloader.git
-cd x-media-downloader
+git clone https://github.com/Geek0ne/X-Media-Downloader.git
+cd X-Media-Downloader
 python3 -m http.server 8000
 # 浏览器打开 http://localhost:8000
 ```
@@ -967,8 +967,8 @@ server {
 ## 🤝 贡献
 
 ```bash
-git clone https://github.com/yourname/x-media-downloader.git
-cd x-media-downloader
+git clone https://github.com/Geek0ne/X-Media-Downloader.git
+cd X-Media-Downloader
 git checkout -b feature/your-feature
 git commit -m "feat: add your feature"
 git push origin feature/your-feature
@@ -978,4 +978,4 @@ git push origin feature/your-feature
 
 ## License
 
-MIT © 2026 巴雷特
+MIT © 2026 Geek0ne
