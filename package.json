@@ -5,6 +5,9 @@
   "main": "index.html",
   "scripts": {
     "dev": "python3 -m http.server 8000",
+    "serve": "npx serve -p 8000 -s .",
+    "test": "npm test --prefix tests",
+    "test:watch": "npm run test:watch --prefix tests",
     "deploy": "netlify deploy --prod"
   },
   "author": "巴雷特",
