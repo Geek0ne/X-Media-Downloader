@@ -271,8 +271,8 @@ GraphQL API: UserMedia → 分页拉取推文
 
 ### Phase 3：高级特性（规划中）
 
-- [ ] 多账号批量任务
-- [ ] 评论抓取
+- [x] **多账号批量任务**（v3.0 已实现）
+- [x] **评论抓取**（v3.0 已实现）
 - [ ] 媒体去重（按图片 hash）
 - [ ] 收藏 / 书签抓取
 - [ ] 关注列表抓取
@@ -465,7 +465,7 @@ vercel --prod
 适合临时测试或局域网共享：
 
 ```bash
-cd /root/Projects/x-media-downloader
+cd ~/X-Media-Downloader
 python3 -m http.server 8000
 ```
 
@@ -497,7 +497,7 @@ pkill -f "http.server 8000"
 npm install -g serve
 
 # 启动
-cd /root/Projects/x-media-downloader
+cd ~/X-Media-Downloader
 serve -p 8000 -s .
 ```
 
@@ -526,7 +526,7 @@ server {
     listen 8000;
     server_name _;  # 或你的域名/局域网IP
 
-    root /root/Projects/x-media-downloader;
+    root ~/X-Media-Downloader;
     index index.html;
 
     # 启用 gzip 压缩
@@ -592,7 +592,7 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/root/Projects/x-media-downloader
+WorkingDirectory=~/X-Media-Downloader
 ExecStart=/usr/bin/python3 -m http.server 8000
 Restart=always
 RestartSec=10
@@ -634,7 +634,7 @@ CMD ["nginx", "-g", "daemon off;"]
 **2. 构建并运行：**
 
 ```bash
-cd /root/Projects/x-media-downloader
+cd ~/X-Media-Downloader
 docker build -t xmd:latest .
 docker run -d -p 8000:80 --name xmd --restart unless-stopped xmd:latest
 ```
@@ -705,7 +705,7 @@ server {
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
 
-    root /root/Projects/x-media-downloader;
+    root ~/X-Media-Downloader;
     index index.html;
 
     location / {
