@@ -494,3 +494,30 @@ describe('classifyApiError', () => {
     expect(e).toBeInstanceOf(Error);
   });
 });
+
+describe('classifyApiError · isHashBroken 标记', () => {
+  test('接口失效时带 isHashBroken 标记，UI 据此自动展开设置面板', () => {
+    const e = Utils.classifyApiError('UserByScreenName', 200, {
+      data: null, errors: [{ message: 'Could not parse query hash' }],
+    });
+    expect(e.isHashBroken).toBe(true);
+  });
+
+  test('Cookie 问题不带该标记（不该误导用户去改 hash）', () => {
+    const e = Utils.classifyApiError('UserByScreenName', 401, null);
+    expect(e.isHashBroken).toBeFalsy();
+  });
+
+  test('限流不带该标记', () => {
+    const e = Utils.classifyApiError('UserMedia', 429, null);
+    expect(e.isHashBroken).toBeFalsy();
+  });
+
+  test('提示语指向高级设置，而不是让用户回去折腾 Cookie', () => {
+    const e = Utils.classifyApiError('UserMedia', 404, {
+      errors: [{ message: 'persisted query not found' }],
+    });
+    expect(e.message).toContain('高级设置');
+    expect(e.message).not.toContain('请重新登录');
+  });
+});

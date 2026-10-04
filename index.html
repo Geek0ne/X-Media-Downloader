@@ -241,6 +241,19 @@ body {
   font-size: 11px;
   border: 1px solid var(--border);
 }
+.field-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 8px 0;
+  line-height: 1.6;
+}
+.field-hint code {
+  background: var(--bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+}
 
 /* Progress */
 .progress-bar {
@@ -736,6 +749,45 @@ body {
     <div id="batchQueue" class="batch-queue"></div>
   </div>
 
+  <!-- 高级设置：接口 hash -->
+  <div class="section" id="advancedSection">
+    <div class="section-title" id="advancedToggle" style="cursor: pointer; user-select: none;">
+      <span class="num">2.8</span>高级设置
+      <span id="advancedHintArrow" style="margin-left: auto; font-size: 12px; opacity: 0.6;">展开 ▾</span>
+    </div>
+    <div id="advancedBody" style="display: none;">
+      <p class="field-hint">
+        X 会不定期更换内部接口的 query hash，换了之后抓取就会失败。
+        <strong>平时不用动这里</strong>，只有抓取时报「接口已变更」才需要更新。
+      </p>
+      <div class="form-row" style="margin-bottom: 8px;">
+        <input type="text" id="hashUserInput" class="input" placeholder="UserByScreenName hash" autocomplete="off">
+      </div>
+      <div class="form-row" style="margin-bottom: 8px;">
+        <input type="text" id="hashMediaInput" class="input" placeholder="UserMedia hash" autocomplete="off">
+      </div>
+      <div class="form-row">
+        <button id="saveHashBtn" class="btn btn-sm">保存</button>
+        <button id="testHashBtn" class="btn btn-secondary btn-sm">检测当前 hash</button>
+        <button id="resetHashBtn" class="btn btn-secondary btn-sm">恢复默认</button>
+        <span id="hashStatus" style="font-size: 12px; margin-left: 8px;"></span>
+      </div>
+      <details style="margin-top: 10px;">
+        <summary style="cursor: pointer; font-size: 12px; opacity: 0.75;">不知道去哪儿拿新 hash？</summary>
+        <p class="field-hint" style="margin-top: 6px;">
+          1. 浏览器登录 x.com，打开任意用户主页<br>
+          2. 按 F12 打开开发者工具，切到 <strong>Network</strong> 标签<br>
+          3. 筛选框输入 <code>UserByScreenName</code>，点一下那条请求<br>
+          4. 点 <strong>Headers</strong>，复制 Request URL<br>
+          5. URL 形如
+          <code>.../graphql/&lt;hash&gt;/UserByScreenName?variables=...</code><br>
+          6. 把 <code>&lt;hash&gt;</code> 那段（中间那一长串）填进来<br><br>
+          <code>UserMedia</code> 同理，筛选 <code>UserMedia</code> 即可。
+        </p>
+      </details>
+    </div>
+  </div>
+
   <!-- 媒体列表 -->
   <div class="section" id="mediaSection" style="display: none;">
     <div class="section-title"><span class="num">3</span>媒体资源</div>
@@ -916,12 +968,12 @@ function setTheme(theme) {
 // =============================================================================
 // UI 工具
 // =============================================================================
-function toast(msg, type = '') {
+function toast(msg, type = '', duration = 3500) {
   const t = $('toast');
   t.textContent = msg;
   t.className = 'toast show ' + type;
   clearTimeout(t._timer);
-  t._timer = setTimeout(() => t.className = 'toast ' + type, 3500);
+  t._timer = setTimeout(() => t.className = 'toast ' + type, duration);
 }
 
 function log(msg, type = '') {
@@ -984,10 +1036,133 @@ $('themeToggle').addEventListener('click', () => {
 const BEARER_TOKEN = 'AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
 const API_BASE = 'https://api.x.com/graphql';
 
-const QUERIES = {
+// 内置的 hash 快照。X 换 hash 后用户在「高级设置」里粘新值即可覆盖，
+// 不必改代码。QUERIES 的属性可变，直接赋值生效。
+const DEFAULT_QUERIES = {
   UserByScreenName: 'GazOglcBvgLigl3ywt6b3x4Qb4OYxqKAhhD1AXgc40K0-7R3qA8iWA',
   UserMedia: 'dexO_2tohK86JDudXXG3GRxZTrIuKtONB3vYJclbcQoO0JEhIiOtA1HUluB0dYyG',
 };
+
+const QUERIES = { ...DEFAULT_QUERIES };
+
+const HASH_STORE_KEY = 'xQueryHashes';
+
+// 把用户保存的 hash 覆盖到 QUERIES 上，并回填输入框
+function loadQueryHashes() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(HASH_STORE_KEY) || '{}');
+    for (const k of ['UserByScreenName', 'UserMedia']) {
+      const v = (saved[k] || '').trim();
+      if (v) QUERIES[k] = v;
+    }
+  } catch (e) {
+    log(`⚠️ 读取已保存的 hash 失败，用内置值：${e.message}`, 'warn');
+  }
+  const u = $('hashUserInput'), m = $('hashMediaInput');
+  if (u) u.value = QUERIES.UserByScreenName;
+  if (m) m.value = QUERIES.UserMedia;
+}
+
+function saveQueryHashes() {
+  const u = $('hashUserInput').value.trim();
+  const m = $('hashMediaInput').value.trim();
+  if (!u || !m) {
+    toast('两个 hash 都要填，别留空', 'error');
+    return false;
+  }
+  QUERIES.UserByScreenName = u;
+  QUERIES.UserMedia = m;
+  localStorage.setItem(HASH_STORE_KEY, JSON.stringify({
+    UserByScreenName: u, UserMedia: m,
+  }));
+  setHashStatus('✓ 已保存，立即生效', 'success');
+  log('✓ query hash 已更新（已保存到本地）', 'success');
+  return true;
+}
+
+function resetQueryHashes() {
+  localStorage.removeItem(HASH_STORE_KEY);
+  QUERIES.UserByScreenName = DEFAULT_QUERIES.UserByScreenName;
+  QUERIES.UserMedia = DEFAULT_QUERIES.UserMedia;
+  $('hashUserInput').value = QUERIES.UserByScreenName;
+  $('hashMediaInput').value = QUERIES.UserMedia;
+  setHashStatus('已恢复内置值', '');
+  log('↩️ query hash 已恢复默认', '');
+}
+
+function setHashStatus(text, type = '') {
+  const el = $('hashStatus');
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = type === 'success' ? 'var(--accent)'
+    : type === 'error' ? '#ef4444' : 'var(--text-muted)';
+}
+
+// 实测当前 hash 能不能用。发一个真实的 UserByScreenName 请求，
+// 这样「到底行不行」就不用靠猜。
+async function testQueryHashes() {
+  const cookie = $('cookieInput').value.trim();
+  if (!cookie) {
+    setHashStatus('先在上面填 Cookie 再检测', 'error');
+    return;
+  }
+  const btn = $('testHashBtn');
+  btn.disabled = true;
+  setHashStatus('检测中…');
+  try {
+    const variables = { screen_name: 'elonmusk', withSafetyModeUserFields: true };
+    const features = {
+      hidden_profile_likes_enabled: true,
+      rweb_tipjar_consumption_enabled: true,
+      responsive_web_graphql_exclude_directive_enabled: true,
+      verified_phone_label_enabled: false,
+      subscriptions_verification_info_is_identity_verified_enabled: true,
+      subscriptions_verification_info_verified_since_enabled: true,
+      highlights_tweets_tab_ui_enabled: true,
+      creator_subscriptions_tweet_preview_api_enabled: true,
+      responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
+      responsive_web_graphql_timeline_navigation_enabled: true,
+    };
+    const url = `${API_BASE}/${QUERIES.UserByScreenName}/UserByScreenName`
+      + `?variables=${encodeURIComponent(JSON.stringify(variables))}`
+      + `&features=${encodeURIComponent(JSON.stringify(features))}`;
+    const resp = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'authorization': `Bearer ${BEARER_TOKEN}`,
+        'cookie': cookie,
+        'x-twitter-active-user': 'yes',
+        'x-twitter-client-language': 'en',
+      },
+    });
+    const data = await resp.json().catch(() => null);
+    if (!resp.ok || (Array.isArray(data?.errors) && data.errors.length)) {
+      const err = classifyApiError('UserByScreenName', resp.status, data);
+      setHashStatus(`✗ ${err.message.split('\n')[0]}`, 'error');
+      log(`✗ hash 检测失败：${err.message}`, 'error');
+      return;
+    }
+    const user = data?.data?.user?.result;
+    if (user) {
+      setHashStatus(`✓ 正常（查到 @${user.legacy.screen_name}）`, 'success');
+    } else {
+      setHashStatus('⚠️ 接口通了，但没拿到用户 —— 可能 Cookie 有问题', 'error');
+    }
+  } catch (e) {
+    setHashStatus(`检测失败：${e.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function openAdvancedPanel() {
+  const body = $('advancedBody');
+  const arrow = $('advancedHintArrow');
+  if (body && body.style.display === 'none') {
+    body.style.display = 'block';
+    if (arrow) arrow.textContent = '收起 ▴';
+  }
+}
 
 // 错误分类逻辑本体在 lib/utils.js（可被测试覆盖），这里只做委托。
 // 页面若单独打开、没加载 utils.js，退回内置实现。
@@ -1001,7 +1176,13 @@ const _apiErrorFallback = (label, status, data) => {
     || (errs.length > 0 && data?.data === null)
     || (errs.length > 0 && data?.data === undefined);
   if (hashBroken) {
-    return new Error(`X 接口已变更，工具需要更新（不是你的 Cookie 问题）。\n      现象：${label} 返回 ${status}${detail ? ' / ' + detail : ''}`);
+    const e = new Error(
+      `X 接口已变更，工具需要更新（不是你的 Cookie 问题）。\n` +
+      `      现象：${label} 返回 ${status}${detail ? ' / ' + detail : ''}\n` +
+      `      处理：展开「2.8 高级设置」，把新的 hash 粘进去点保存。`
+    );
+    e.isHashBroken = true;
+    return e;
   }
   if (status === 401 || status === 403) {
     return new Error(`Cookie 无效或已过期（${label} ${status}）。请重新登录 X 并复制新的 Cookie。`);
@@ -1414,6 +1595,10 @@ async function startFetch() {
     } else {
       log(`错误: ${e.message}`, 'error');
       toast('抓取失败: ' + e.message, 'error');
+      if (e.isHashBroken) {
+        openAdvancedPanel();
+        toast('接口已变更，请在「高级设置」里更新 hash', 'error', 6000);
+      }
     }
   } finally {
     state.isFetching = false;
@@ -2337,7 +2522,20 @@ function debounce(fn, delay) {
 }
 
 loadPersisted();
+loadQueryHashes();
 renderBatchQueue();
+
+// 高级设置面板
+$('advancedToggle').addEventListener('click', () => {
+  const body = $('advancedBody');
+  const arrow = $('advancedHintArrow');
+  const opening = body.style.display === 'none';
+  body.style.display = opening ? 'block' : 'none';
+  arrow.textContent = opening ? '收起 ▴' : '展开 ▾';
+});
+$('saveHashBtn').addEventListener('click', saveQueryHashes);
+$('resetHashBtn').addEventListener('click', resetQueryHashes);
+$('testHashBtn').addEventListener('click', testQueryHashes);
 
 // 注册 Service Worker（PWA 离线支持）
 if ('serviceWorker' in navigator) {
