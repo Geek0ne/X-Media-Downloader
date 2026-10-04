@@ -1,14 +1,15 @@
-# X Media Downloader · 推特媒体下载器 v3.0
+# X Media Downloader · 推特媒体下载器 v3.1
 
 > 下载 X (Twitter) 账号的全部图片和视频，最高清晰度，零后端、纯静态、免费部署。支持多账号批量抓取、评论抓取、PWA 离线使用。
 
-![License](https://img.shields.io/badge/license-MIT-blue) ![No Backend](https://img.shields.io/badge/backend-none-green) ![Free Deploy](https://img.shields.io/badge/deploy-Netlify%20%7C%20CF%20Pages-brightgreen) ![v3.0](https://img.shields.io/badge/version-3.0-orange) ![PWA](https://img.shields.io/badge/PWA-supported-blueviolet)
+![License](https://img.shields.io/badge/license-MIT-blue) ![No Backend](https://img.shields.io/badge/backend-none-green) ![Free Deploy](https://img.shields.io/badge/deploy-Netlify%20%7C%20CF%20Pages-brightgreen) ![v3.1](https://img.shields.io/badge/version-3.1-orange) ![PWA](https://img.shields.io/badge/PWA-supported-blueviolet)
 
 ---
 
 ## 📋 目录
 
 - [项目简介](#项目简介)
+- [v3.1 新特性](#v31-新特性)
 - [v3.0 新特性](#v30-新特性)
 - [核心特性](#核心特性)
 - [快速开始](#快速开始)
@@ -41,6 +42,22 @@
 - 📦 **ZIP 打包**：一键打包所有媒体 + 推文原文
 
 ---
+
+## v3.1 新特性
+
+| 新功能 | 说明 |
+|--------|------|
+| 🆕 **媒体去重** | 同一张图在多条推文里重复出现时自动合并，抓 200 条通常能省一两成下载量 |
+| 🆕 **接口 hash 可视化配置** | X 换 hash 后在「高级设置」里粘新值即可，不用改代码 |
+| 🆕 **hash 有效性检测** | 一键实测当前 hash 能不能用，不用靠猜是 Cookie 过期还是接口变了 |
+| 🆕 **失效自动引导** | 检测到接口失效时自动展开设置面板并提示怎么取新 hash |
+| ✅ **错误原因分类** | 区分「X 接口变更」「Cookie 无效」「被限流」，不再一律报 Cookie 问题 |
+
+维护性改动：
+
+- CI 修复：补上被 `.gitignore` 排除的锁文件，Actions 从持续失败转为通过
+- `lib/utils.js` 此前从未被页面加载，测试覆盖的并非线上运行的代码，现已接上
+- 媒体去重逻辑移入 `lib/utils.js`，与单元测试共用同一份实现
 
 ## v3.0 新特性
 
@@ -326,13 +343,6 @@ wrangler pages deploy . --project-name=x-media-downloader
 npm install -g vercel
 vercel --prod
 ```
-
-### GitHub Pages
-
-1. 把项目推送到 GitHub
-2. 进入仓库 Settings → Pages
-3. Source 选 `main` 分支，根目录 `/`
-4. 保存
 
 ---
 
@@ -866,13 +876,9 @@ server {
 4. 在控制台手动加 SPA 重定向规则：`(.*) → /index.html`
 5. 手动加 SW headers：`/sw.js` → `Cache-Control: no-cache`
 
-**GitHub Pages**（不推荐 PWA）：
-1. 仓库 Settings → Pages → Source: Deploy from a branch → master / root
-2. ⚠️ GitHub Pages **不支持 SW 缓存控制**，Service Worker 可能不工作
-
 ### 自动测试（GitHub Actions）
 
-每次 push 到 master 时，GitHub Actions 会自动运行 43 个单元测试。结果显示在仓库的 Actions 标签页。
+每次 push 到 master 时，GitHub Actions 会自动运行 59 个单元测试。结果显示在仓库的 Actions 标签页。
 
 ---
 
@@ -890,7 +896,6 @@ server {
 | **阿里云 OSS 静态网站** | 🟡 良好 | 需手动配 SPA | 手动上传 | ⭐⭐ | 需配置默认首页 |
 | **AWS S3 + CloudFront** | 🟡 良好 | 需手动配 | CLI / 控制台 | ⭐⭐⭐ | 灵活但复杂 |
 | **Azure Static Web Apps** | 🟡 良好 | 需 `staticwebapp.config.json` | GitHub 集成 | ⭐⭐ | 微软生态 |
-| **GitHub Pages** | 🟠 限制 | 无 | GitHub 集成 | ⭐ | ⚠️ PWA 部分受限 |
 | **Python HTTP** | 🟢 完美 | - | 命令行 | ⭐ | 单页应用够用 |
 | **Node.js serve** | 🟢 完美 | - | 命令行 | ⭐ | `-s` 启用 SPA |
 | **Nginx** | 🟢 完美 | server block | 配置文件 | ⭐⭐ | 生产环境首选 |
@@ -907,17 +912,17 @@ server {
 
 ### 各平台特性对比
 
-| 特性 | Netlify | Cloudflare | Vercel | EdgeOne | GitHub Pages | Nginx |
-|------|---------|------------|--------|---------|--------------|-------|
-| 免费额度 | 100GB/月 | 无限 | 100GB/月 | 30GB/月 | 1GB | 自有 |
-| 自定义域名 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 自动 HTTPS | ✅ | ✅ | ✅ | ✅ | ✅ | ✅（需配置）|
-| 全球 CDN | ✅ | ✅ | ✅ | ✅ | ❌ | 需 CloudFlare |
-| 国内访问速度 | ⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐⭐ | ⭐ | 自建 |
-| SPA 支持 | ✅ | ✅ | ✅ | 手动配 | ❌ | 手动配 |
-| Service Worker | ✅ | ✅ | ✅ | 手动配 | ⚠️ | ✅ |
-| 自动部署 | ✅ | ✅ | ✅ | ✅ | ✅ | 手动 |
-| 预览部署 | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| 特性 | Netlify | Cloudflare | Vercel | EdgeOne | Nginx |
+|------|---------|------------|--------|---------|-------|
+| 免费额度 | 100GB/月 | 无限 | 100GB/月 | 30GB/月 | 自有 |
+| 自定义域名 | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 自动 HTTPS | ✅ | ✅ | ✅ | ✅ | ✅（需配置）|
+| 全球 CDN | ✅ | ✅ | ✅ | ✅ | 需 CloudFlare |
+| 国内访问速度 | ⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐⭐ | 自建 |
+| SPA 支持 | ✅ | ✅ | ✅ | 手动配 | 手动配 |
+| Service Worker | ✅ | ✅ | ✅ | 手动配 | ✅ |
+| 自动部署 | ✅ | ✅ | ✅ | ✅ | 手动 |
+| 预览部署 | ✅ | ✅ | ✅ | ❌ | ❌ |
 
 ### 推荐方案
 

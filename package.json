@@ -1,6 +1,6 @@
 {
   "name": "x-media-downloader",
-  "version": "1.0.0",
+  "version": "3.1.0",
   "description": "X (Twitter) 媒体下载器 - 单页应用，可部署到 Netlify/Cloudflare Pages",
   "main": "index.html",
   "scripts": {
@@ -12,5 +12,10 @@
   },
   "author": "Geek0ne",
   "license": "MIT",
-  "keywords": ["twitter", "x", "media", "downloader"]
+  "keywords": [
+    "twitter",
+    "x",
+    "media",
+    "downloader"
+  ]
 }
