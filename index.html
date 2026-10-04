@@ -396,6 +396,19 @@ body {
 }
 .media-type-badge.gif { background: rgba(139, 92, 246, 0.9); }
 .media-type-badge.video { background: rgba(59, 130, 246, 0.9); }
+.media-dup-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: rgba(234, 179, 8, 0.92);
+  color: #1a1a1a;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: monospace;
+  cursor: help;
+}
 
 .media-info { padding: 10px 12px; }
 .media-tweet-link {
@@ -812,6 +825,9 @@ body {
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<!-- 纯函数库：与 tests/ 的单元测试共用同一份实现。
+     若加载失败，页面内嵌的兜底实现会接管，不会白屏。 -->
+<script src="lib/utils.js"></script>
 
 <script>
 // =============================================================================
@@ -973,6 +989,36 @@ const QUERIES = {
   UserMedia: 'dexO_2tohK86JDudXXG3GRxZTrIuKtONB3vYJclbcQoO0JEhIiOtA1HUluB0dYyG',
 };
 
+// 错误分类逻辑本体在 lib/utils.js（可被测试覆盖），这里只做委托。
+// 页面若单独打开、没加载 utils.js，退回内置实现。
+const _apiErrorFallback = (label, status, data) => {
+  const errs = Array.isArray(data?.errors) ? data.errors : [];
+  const detail = errs.map(e => e?.message || '').filter(Boolean).join(' | ');
+  const extName = errs.map(e => e?.extensions?.name || '').filter(Boolean).join(' | ');
+  const hashBroken =
+    /query\s*hash|could not parse|persisted query|persistedQuery/i.test(detail + ' ' + extName)
+    || (status === 404 && !!detail)
+    || (errs.length > 0 && data?.data === null)
+    || (errs.length > 0 && data?.data === undefined);
+  if (hashBroken) {
+    return new Error(`X 接口已变更，工具需要更新（不是你的 Cookie 问题）。\n      现象：${label} 返回 ${status}${detail ? ' / ' + detail : ''}`);
+  }
+  if (status === 401 || status === 403) {
+    return new Error(`Cookie 无效或已过期（${label} ${status}）。请重新登录 X 并复制新的 Cookie。`);
+  }
+  if (status === 429) {
+    return new Error(`被 X 限流了（${label} 429）。等 10–30 分钟再试，或降低并发。`);
+  }
+  if (detail) return new Error(`${label} ${status}：${detail}`);
+  return new Error(`${label} 请求失败（${status}）。`);
+};
+
+function classifyApiError(label, status, data) {
+  return window.XMD_Utils
+    ? window.XMD_Utils.classifyApiError(label, status, data)
+    : _apiErrorFallback(label, status, data);
+}
+
 async function getUserId(username, cookie, attempt = 1) {
   const variables = {
     screen_name: username,
@@ -1014,10 +1060,21 @@ async function getUserId(username, cookie, attempt = 1) {
       }
     }
 
-    if (!resp.ok) throw new Error(`UserByScreenName ${resp.status}`);
-    const data = await resp.json();
+    const data = await resp.json().catch(() => null);
+    if (!resp.ok) throw classifyApiError('UserByScreenName', resp.status, data);
+    if (Array.isArray(data?.errors) && data.errors.length) {
+      throw classifyApiError('UserByScreenName', resp.status, data);
+    }
     const user = data?.data?.user?.result;
-    if (!user) throw new Error('用户不存在或 Cookie 无效');
+    if (!user) {
+      // 没有 errors、HTTP 也正常，却拿不到用户 —— 多半是 Cookie 没带对
+      throw new Error(
+        `拿不到用户「${username}」。要么账号名写错了，要么 Cookie 没有效：\n` +
+        `      · 账号名确认一下（不带 @，如 elonmusk）\n` +
+        `      · Cookie 复制完整了吗（要包含 auth_token 和 ct0）\n` +
+        `      · 如果账号确实存在，那多半是 X 接口变了，工具需要更新`
+      );
+    }
     return {
       id: user.rest_id,
       name: user.legacy.name,
@@ -1091,8 +1148,12 @@ async function getUserMedia(userId, cookie, count, cursor = null, attempt = 1) {
       }
     }
 
-    if (!resp.ok) throw new Error(`UserMedia ${resp.status}`);
-    return await resp.json();
+    const data = await resp.json().catch(() => null);
+    if (!resp.ok) throw classifyApiError('UserMedia', resp.status, data);
+    if (Array.isArray(data?.errors) && data.errors.length) {
+      throw classifyApiError('UserMedia', resp.status, data);
+    }
+    return data;
   } catch (e) {
     if (e.name === 'AbortError') throw e;
     if (attempt <= state.maxRetries) {
@@ -1343,6 +1404,7 @@ async function startFetch() {
       log(`💾 已保存 since_id: ${newSinceId}`, 'success');
     }
 
+    dedupeMedia();
     log(`抓取完成！${state.tweets.length} 条推文，${state.images.length} 图，${state.videos.length} 视频，${state.gifs.length} GIF`, 'success');
     setProgress(100, '抓取完成', totalFetched, maxTweets);
     renderMedia();
@@ -1370,6 +1432,51 @@ function stopFetch() {
 // =============================================================================
 // 渲染 + 筛选
 // =============================================================================
+// 媒体去重
+// X 上同一张图常在多条推文里重复出现（同一组图被转发、或同一媒体被多次引用）。
+// 抓 200 条推文时，重复项通常能占到一两成，全下就是白跑带宽。
+// 这里按归一化 URL 去重：去掉查询参数，因为 ?name=orig 与 ?name=small 是同一张图。
+function mediaKey(item) {
+  return window.XMD_Utils
+    ? window.XMD_Utils.mediaKey(item)
+    : (item?.type || '') + '::' + String(item?.url || '').split('?')[0];
+}
+
+function dedupeMedia() {
+  const seen = new Map();
+  const removed = { images: 0, videos: 0, gifs: 0 };
+
+  for (const kind of ['images', 'videos', 'gifs']) {
+    const kept = [];
+    for (const item of state[kind]) {
+      const k = mediaKey(item);
+      const first = seen.get(k);
+      if (first) {
+        first.dupCount = (first.dupCount || 0) + 1;
+        first.dupTweets = first.dupTweets || [];
+        if (item.tweetId) first.dupTweets.push(item.tweetId);
+        removed[kind]++;
+      } else {
+        item.dupCount = 0;
+        item.dupTweets = [];
+        seen.set(k, item);
+        kept.push(item);
+      }
+    }
+    state[kind] = kept;
+  }
+
+  const total = removed.images + removed.videos + removed.gifs;
+  if (total > 0) {
+    const parts = [];
+    if (removed.images) parts.push(`${removed.images} 图`);
+    if (removed.videos) parts.push(`${removed.videos} 视频`);
+    if (removed.gifs) parts.push(`${removed.gifs} GIF`);
+    log(`🧹 去重：合并了 ${total} 条重复媒体（${parts.join(' / ')}）`, 'success');
+  }
+  return { total, removed };
+}
+
 let currentTab = 'images';
 let filteredData = { images: [], videos: [], gifs: [] };
 
@@ -1486,6 +1593,16 @@ function createMediaCard(item, idx, kind) {
     dur.className = 'media-duration';
     dur.textContent = formatDuration(item.duration);
     thumb.appendChild(dur);
+  }
+
+  // 重复媒体徽章（去重后仍保留出现次数，避免用户以为抓漏了）
+  if (item.dupCount > 0) {
+    const dup = document.createElement('div');
+    dup.className = 'media-dup-badge';
+    dup.textContent = `×${item.dupCount + 1}`;
+    dup.title = `同一媒体在 ${item.dupCount + 1} 条推文里出现过，已合并下载`
+      + (item.dupTweets?.length ? `\n推文：${item.dupTweets.join(', ')}` : '');
+    thumb.appendChild(dup);
   }
 
   if (kind === 'image') {
@@ -1935,6 +2052,7 @@ async function runBatchTasks() {
   $('runBatchBtn').disabled = false;
   $('addBatchBtn').disabled = false;
   $('clearBatchBtn').disabled = false;
+  dedupeMedia();
   renderMedia();
   toast('批量任务完成', 'success');
 }

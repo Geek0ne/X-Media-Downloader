@@ -425,3 +425,72 @@ describe('debounce', () => {
     expect(called).toBe(1);
   });
 });
+
+describe('mediaKey', () => {
+  test('忽略查询参数，同一张图视为同一个 key', () => {
+    const a = Utils.mediaKey({ type: 'image', url: 'https://pbs.twimg.com/media/X?format=jpg&name=orig' });
+    const b = Utils.mediaKey({ type: 'image', url: 'https://pbs.twimg.com/media/X?format=jpg&name=small' });
+    expect(a).toBe(b);
+  });
+
+  test('不同类型即使 URL 相同也不同 key', () => {
+    const img = Utils.mediaKey({ type: 'image', url: 'https://a.com/v.mp4' });
+    const vid = Utils.mediaKey({ type: 'video', url: 'https://a.com/v.mp4' });
+    expect(img).not.toBe(vid);
+  });
+
+  test('不同路径产出不同 key', () => {
+    const a = Utils.mediaKey({ type: 'image', url: 'https://pbs.twimg.com/media/A?x=1' });
+    const b = Utils.mediaKey({ type: 'image', url: 'https://pbs.twimg.com/media/B?x=1' });
+    expect(a).not.toBe(b);
+  });
+
+  test('空输入不抛异常', () => {
+    expect(Utils.mediaKey(null)).toBe('');
+    expect(Utils.mediaKey({})).toBe('::');
+  });
+});
+
+describe('classifyApiError', () => {
+  test('query hash 失效时提示工具需更新，而非 Cookie 问题', () => {
+    const data = { data: null, errors: [{ message: 'Could not parse query hash' }] };
+    const e = Utils.classifyApiError('UserByScreenName', 200, data);
+    expect(e.message).toContain('接口已变更');
+    expect(e.message).not.toContain('请重新登录');
+  });
+
+  test('data 为 null 且带 errors 也判定为接口变更', () => {
+    const e = Utils.classifyApiError('UserMedia', 200, { data: null, errors: [{ message: 'x' }] });
+    expect(e.message).toContain('接口已变更');
+  });
+
+  test('401 归为 Cookie 问题', () => {
+    const e = Utils.classifyApiError('UserByScreenName', 401, null);
+    expect(e.message).toContain('Cookie 无效或已过期');
+  });
+
+  test('403 归为 Cookie 问题', () => {
+    const e = Utils.classifyApiError('UserMedia', 403, {});
+    expect(e.message).toContain('Cookie');
+  });
+
+  test('429 归为限流并给出等待建议', () => {
+    const e = Utils.classifyApiError('UserMedia', 429, null);
+    expect(e.message).toContain('限流');
+  });
+
+  test('无 errors 的 404 提示可能是 hash 过期', () => {
+    const e = Utils.classifyApiError('UserMedia', 404, null);
+    expect(e.message).toContain('404');
+  });
+
+  test('其他状态码带上服务端返回的详情', () => {
+    const e = Utils.classifyApiError('UserMedia', 500, { errors: [{ message: 'boom' }] });
+    expect(e.message).toContain('boom');
+  });
+
+  test('返回的是 Error 实例', () => {
+    const e = Utils.classifyApiError('X', 500, null);
+    expect(e).toBeInstanceOf(Error);
+  });
+});
