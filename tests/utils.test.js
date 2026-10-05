@@ -552,3 +552,91 @@ describe('sinceKey', () => {
     expect(Utils.sinceKey(undefined)).toBe('sinceId_');
   });
 });
+
+// 复现今天那个 bug 的场景：A 账号先增量抓过，再换 B 账号。
+// 旧实现用全局 sinceId，B 会拿 A 的值去过滤，B 的推文被整片滤掉。
+describe('filterNewTweets', () => {
+  const t = (id) => ({ legacy: { id_str: String(id) } });
+  const t2 = (id) => ({ rest_id: String(id) });
+
+  test('没有 sinceId 时原样返回', () => {
+    const arr = [t(3), t(2)];
+    const r = Utils.filterNewTweets(arr, null);
+    expect(r.fresh).toEqual(arr);
+    expect(r.hitOld).toBe(false);
+    expect(r.maxId).toBeNull();
+  });
+
+  test('过滤掉不比 sinceId 新的推文', () => {
+    const r = Utils.filterNewTweets([t(105), t(104), t(103)], '104');
+    expect(r.fresh.map(x => x.legacy.id_str)).toEqual(['105']);
+    expect(r.hitOld).toBe(true);
+  });
+
+  test('遇到旧推文就停，后面的不再收（时间线是倒序的）', () => {
+    // sinceId=104：105 是新的；103 比它旧，说明已越过边界，
+    // 后面的 200 就算 ID 更大也不该收（时间线是倒序，边界之后即结束）
+    const r = Utils.filterNewTweets([t(105), t(103), t(200)], '104');
+    expect(r.fresh.map(x => x.legacy.id_str)).toEqual(['105']);
+    expect(r.hitOld).toBe(true);
+  });
+
+  test('整批都新于 sinceId 时全部收下', () => {
+    const r = Utils.filterNewTweets([t(105), t(103), t(200)], '100');
+    expect(r.fresh.map(x => x.legacy.id_str)).toEqual(['105', '103', '200']);
+    expect(r.hitOld).toBe(false);
+    expect(r.maxId).toBe('200');
+  });
+
+  test('返回本批里最大的新 ID，用于推进 since_id', () => {
+    const r = Utils.filterNewTweets([t(101), t(105), t(103)], '100');
+    expect(r.maxId).toBe('105');
+  });
+
+  test('兼容 rest_id 格式', () => {
+    const r = Utils.filterNewTweets([t2(105), t2(99)], '100');
+    expect(r.fresh.map(x => x.rest_id)).toEqual(['105']);
+  });
+
+  test('★ 回归：换账号后不能拿上一个账号的 since_id 去过滤', () => {
+    // A 账号最新是 500（活跃用户）
+    const sinceA = '500';
+    // B 账号推文 ID 全都小于 500（低活跃账号）
+    const tweetsB = [t(120), t(115), t(110)];
+    const r = Utils.filterNewTweets(tweetsB, sinceA);
+    // 正确行为：全部视为已读，不返回任何“新”推文
+    expect(r.fresh).toHaveLength(0);
+    expect(r.hitOld).toBe(true);
+    // 关键：不能崩溃、不能返回错误的 maxId
+    expect(r.maxId).toBeNull();
+  });
+
+  test('空数组不抛异常', () => {
+    expect(Utils.filterNewTweets([], '100').fresh).toEqual([]);
+  });
+
+  test('非数组输入不抛异常', () => {
+    expect(Utils.filterNewTweets(null, '100').fresh).toEqual([]);
+  });
+});
+
+describe('maxTweetId', () => {
+  const t = (id) => ({ legacy: { id_str: String(id) } });
+
+  test('取最大 ID', () => {
+    expect(Utils.maxTweetId([t(3), t(99), t(50)])).toBe('99');
+  });
+
+  test('空数组返回 null', () => {
+    expect(Utils.maxTweetId([])).toBeNull();
+  });
+
+  test('兼容 rest_id', () => {
+    expect(Utils.maxTweetId([{ rest_id: '7' }, { rest_id: '12' }])).toBe('12');
+  });
+
+  test('ID 超 JS 安全整数也不出错（用 BigInt 比较）', () => {
+    const big = '9007199254740993';
+    expect(Utils.maxTweetId([t('9007199254740991'), t(big)])).toBe(big);
+  });
+});

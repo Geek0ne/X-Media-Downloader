@@ -1476,6 +1476,80 @@ function getNextCursor(timeline) {
 // =============================================================================
 // 主抓取流程
 // =============================================================================
+// 抓取时间线的核心循环：翻页 + 增量过滤 + 媒体提取。
+// 单账号抓取和批量抓取共用这一份。以前两边各写一套，改一处忘另一处
+// 就出过 bug（since_id 串号），所以现在只有这一个实现。
+// 返回 { totalFetched, newSinceId }，出错直接抛给调用方。
+async function fetchTimeline({ userId, cookie, maxTweets, sinceId }) {
+  let cursor = null;
+  let totalFetched = 0;
+  let pageCount = 0;
+  let lastTweetId = null;
+  let lastSinceId = sinceId;
+
+  while (totalFetched < maxTweets && state.isFetching) {
+    const count = Math.min(maxTweets - totalFetched, 40);
+    pageCount++;
+    log(`第 ${pageCount} 页请求 ${count} 条推文...`);
+
+    const resp = await getUserMedia(userId, cookie, count, cursor);
+    const tweets = flattenTweets(resp);
+    if (tweets.length === 0) {
+      log('已无更多推文', 'success');
+      break;
+    }
+
+    if (sinceId) {
+      // 增量：只收比 sinceId 新的，遇到旧的说明到头了。
+      // 过滤逻辑在 lib/utils.js，和单元测试共用同一份实现。
+      const { fresh, maxId, hitOld } = filterNewTweets(tweets, sinceId);
+      if (hitOld) {
+        log('📍 遇到旧推文，停止抓取', 'success');
+        state.isFetching = false;
+      }
+      if (maxId && (!lastSinceId || BigInt(maxId) > BigInt(lastSinceId))) {
+        lastSinceId = maxId;
+      }
+      if (fresh.length === 0) break;
+      state.tweets.push(...fresh);
+      const media = extractMedia(fresh);
+      state.images.push(...media.images);
+      state.videos.push(...media.videos);
+      state.gifs.push(...media.gifs);
+      totalFetched += fresh.length;
+      if (!state.isFetching) break;
+    } else {
+      state.tweets.push(...tweets);
+      const maxId = maxTweetId(tweets);
+      if (maxId && (!lastTweetId || BigInt(maxId) > BigInt(lastTweetId))) {
+        lastTweetId = maxId;
+      }
+      const media = extractMedia(tweets);
+      state.images.push(...media.images);
+      state.videos.push(...media.videos);
+      state.gifs.push(...media.gifs);
+      totalFetched += tweets.length;
+    }
+
+    setProgress(
+      Math.min((totalFetched / maxTweets) * 100, 99),
+      `已抓取 ${tweets.length} 条推文`,
+      totalFetched,
+      maxTweets
+    );
+    log(`✓ 累计: ${totalFetched} 条, ${state.images.length} 图, ${state.videos.length} 视频, ${state.gifs.length} GIF`, 'success');
+
+    cursor = getNextCursor(resp);
+    if (!cursor) {
+      log('已到达时间线末尾', 'success');
+      break;
+    }
+    await new Promise(r => setTimeout(r, 1500));
+  }
+
+  return { totalFetched, newSinceId: lastSinceId || lastTweetId };
+}
+
 async function startFetch() {
   const cookie = $('cookieInput').value.trim();
   const username = $('usernameInput').value.trim().replace(/^@/, '');
@@ -1494,14 +1568,11 @@ async function startFetch() {
   state.retryCount = 0;
   persistCookie();
 
-  // 增量模式：使用本地保存的 since_id
-  // 关键：必须按当前账号重新读，不能用启动时加载的那份
+  // 增量模式：必须按当前账号重新读，不能用启动时加载的那份
   const incremental = $('incrementalMode').checked;
   const savedSince = incremental ? loadSinceId(username) : null;
-  let sinceId = null;
   if (savedSince) {
-    sinceId = savedSince;
-    log(`📌 增量模式：只拉取 since_id=${sinceId} 之后的新推文`, 'success');
+    log(`📌 增量模式：只拉取 since_id=${savedSince} 之后的新推文`, 'success');
   } else if (incremental) {
     log(`ℹ️ ${username} 还没有历史记录，本次按全量抓取`, '');
   } else {
@@ -1524,86 +1595,10 @@ async function startFetch() {
     state.userId = user.id;
     log(`✓ 找到用户: ${user.name} (@${user.screenName})`, 'success');
 
-    let cursor = null;
-    let totalFetched = 0;
-    let pageCount = 0;
-    let lastTweetId = null;
-    let lastSinceId = sinceId;
+    const { totalFetched, newSinceId } = await fetchTimeline({
+      userId: user.id, cookie, maxTweets, sinceId: savedSince,
+    });
 
-    while (totalFetched < maxTweets && state.isFetching) {
-      const remaining = maxTweets - totalFetched;
-      const count = Math.min(remaining, 40);
-
-      pageCount++;
-      log(`第 ${pageCount} 页请求 ${count} 条推文...`);
-
-      const resp = await getUserMedia(user.id, cookie, count, cursor);
-      const tweets = flattenTweets(resp);
-
-      if (tweets.length === 0) {
-        log('已无更多推文', 'success');
-        break;
-      }
-
-      // 增量模式：遇到 sinceId 就停
-      if (sinceId) {
-        const filtered = [];
-        for (const t of tweets) {
-          const id = t.legacy?.id_str || t.rest_id;
-          if (id && BigInt(id) > BigInt(sinceId)) {
-            filtered.push(t);
-            if (!lastSinceId || BigInt(id) > BigInt(lastSinceId)) {
-              lastSinceId = id;
-            }
-          } else {
-            log(`📍 遇到旧推文 (${id})，停止抓取`, 'success');
-            state.isFetching = false;
-            break;
-          }
-        }
-        if (filtered.length === 0) break;
-        state.tweets.push(...filtered);
-        const media = extractMedia(filtered);
-        state.images.push(...media.images);
-        state.videos.push(...media.videos);
-        state.gifs.push(...media.gifs);
-        totalFetched += filtered.length;
-        if (!state.isFetching) break;
-      } else {
-        state.tweets.push(...tweets);
-        // 记录最新推文 ID
-        for (const t of tweets) {
-          const id = t.legacy?.id_str || t.rest_id;
-          if (id && (!lastTweetId || BigInt(id) > BigInt(lastTweetId))) {
-            lastTweetId = id;
-          }
-        }
-        const media = extractMedia(tweets);
-        state.images.push(...media.images);
-        state.videos.push(...media.videos);
-        state.gifs.push(...media.gifs);
-        totalFetched += tweets.length;
-      }
-
-      setProgress(
-        Math.min((totalFetched / maxTweets) * 100, 99),
-        `已抓取 ${tweets.length} 条推文`,
-        totalFetched,
-        maxTweets
-      );
-      log(`✓ 累计: ${totalFetched} 条, ${state.images.length} 图, ${state.videos.length} 视频, ${state.gifs.length} GIF`, 'success');
-
-      cursor = getNextCursor(resp);
-      if (!cursor) {
-        log('已到达时间线末尾', 'success');
-        break;
-      }
-
-      await new Promise(r => setTimeout(r, 1500));
-    }
-
-    // 保存 since_id
-    const newSinceId = lastSinceId || lastTweetId;
     if (newSinceId) {
       persistSinceId(newSinceId, username);
       log(`💾 已保存 since_id: ${newSinceId}`, 'success');
@@ -1656,6 +1651,34 @@ function sinceKey(username) {
   return window.XMD_Utils
     ? window.XMD_Utils.sinceKey(username)
     : `sinceId_${String(username || '').trim().replace(/^@/, '')}`;
+}
+
+// 增量过滤与取最大推文 ID。实现体在 lib/utils.js，线上跑的和测试的是同一份。
+function filterNewTweets(tweets, sinceId) {
+  if (window.XMD_Utils) return window.XMD_Utils.filterNewTweets(tweets, sinceId);
+  const arr = Array.isArray(tweets) ? tweets : [];
+  if (!sinceId) return { fresh: arr, maxId: null, hitOld: false };
+  const fresh = [];
+  let maxId = null, hitOld = false;
+  for (const t of arr) {
+    const id = t?.legacy?.id_str || t?.rest_id;
+    if (id && BigInt(id) > BigInt(sinceId)) {
+      fresh.push(t);
+      if (!maxId || BigInt(id) > BigInt(maxId)) maxId = id;
+    } else { hitOld = true; break; }
+  }
+  return { fresh, maxId, hitOld };
+}
+
+function maxTweetId(tweets) {
+  if (window.XMD_Utils) return window.XMD_Utils.maxTweetId(tweets);
+  const arr = Array.isArray(tweets) ? tweets : [];
+  let max = null;
+  for (const t of arr) {
+    const id = t?.legacy?.id_str || t?.rest_id;
+    if (id && (!max || BigInt(id) > BigInt(max))) max = id;
+  }
+  return max;
 }
 
 function dedupeMedia() {
@@ -2274,84 +2297,36 @@ async function runBatchTasks() {
 
 // 单个抓取（可独立调用）
 async function runSingleFetch() {
-  return new Promise(async (resolve, reject) => {
-    state.isFetching = true;
-    state.abortController = new AbortController();
-    try {
-      log(`开始抓取用户 @${state.username}...`);
-      setProgress(0, '正在获取用户信息...', 0, state.maxTweets);
-      const user = await getUserId(state.username, state.cookie);
-      state.userId = user.id;
-      log(`✓ 找到用户: ${user.name} (@${user.screenName})`, 'success');
-      let cursor = null;
-      let totalFetched = 0;
-      let pageCount = 0;
-      let lastTweetId = state.sinceId;
-      let lastSinceId = state.sinceId;
-      const incremental = $('incrementalMode').checked && state.sinceId;
-      const targetMax = state.maxTweets;
-      while (totalFetched < targetMax && state.isFetching) {
-        const remaining = targetMax - totalFetched;
-        const count = Math.min(remaining, 40);
-        pageCount++;
-        log(`第 ${pageCount} 页请求 ${count} 条推文...`);
-        const resp = await getUserMedia(user.id, state.cookie, count, cursor);
-        const tweets = flattenTweets(resp);
-        if (tweets.length === 0) { log('已无更多推文', 'success'); break; }
-        if (incremental) {
-          const filtered = [];
-          for (const t of tweets) {
-            const id = t.legacy?.id_str || t.rest_id;
-            if (id && BigInt(id) > BigInt(state.sinceId)) {
-              filtered.push(t);
-              if (!lastSinceId || BigInt(id) > BigInt(lastSinceId)) lastSinceId = id;
-            } else {
-              log(`📍 遇到旧推文 (${id})，停止抓取`, 'success');
-              state.isFetching = false;
-              break;
-            }
-          }
-          if (filtered.length === 0) break;
-          state.tweets.push(...filtered);
-          const media = extractMedia(filtered);
-          state.images.push(...media.images);
-          state.videos.push(...media.videos);
-          state.gifs.push(...media.gifs);
-          totalFetched += filtered.length;
-          if (!state.isFetching) break;
-        } else {
-          state.tweets.push(...tweets);
-          for (const t of tweets) {
-            const id = t.legacy?.id_str || t.rest_id;
-            if (id && (!lastTweetId || BigInt(id) > BigInt(lastTweetId))) lastTweetId = id;
-          }
-          const media = extractMedia(tweets);
-          state.images.push(...media.images);
-          state.videos.push(...media.videos);
-          state.gifs.push(...media.gifs);
-          totalFetched += tweets.length;
-        }
-        setProgress(Math.min((totalFetched / targetMax) * 100, 99), `已抓取 ${tweets.length} 条`, totalFetched, targetMax);
-        log(`✓ 累计: ${totalFetched} 条, ${state.images.length} 图, ${state.videos.length} 视频, ${state.gifs.length} GIF`, 'success');
-        cursor = getNextCursor(resp);
-        if (!cursor) { log('已到达末尾', 'success'); break; }
-        await new Promise(r => setTimeout(r, 1500));
-      }
-      const newSinceId = lastSinceId || lastTweetId;
-      if (newSinceId) {
-        // 按账号分开保存 since_id
-        persistSinceId(newSinceId, state.username);
-        log(`💾 已保存 since_id: ${newSinceId}`, 'success');
-      }
-      log(`完成: ${state.tweets.length} 推文, ${state.images.length} 图, ${state.videos.length} 视频, ${state.gifs.length} GIF`, 'success');
-      setProgress(100, '完成', totalFetched, targetMax);
-      resolve();
-    } catch (e) {
-      reject(e);
-    } finally {
-      state.isFetching = false;
+  // 批量任务里逐个账号跑。真正的翻页逻辑在 fetchTimeline，
+  // 这里只负责喂参数和收尾，异常直接往外抛，由批量队列去标记该任务失败。
+  state.isFetching = true;
+  state.abortController = new AbortController();
+
+  const incremental = $('incrementalMode').checked && state.sinceId;
+  try {
+    log(`开始抓取用户 @${state.username}...`);
+    setProgress(0, '正在获取用户信息...', 0, state.maxTweets);
+
+    const user = await getUserId(state.username, state.cookie);
+    state.userId = user.id;
+    log(`✓ 找到用户: ${user.name} (@${user.screenName})`, 'success');
+
+    const { totalFetched, newSinceId } = await fetchTimeline({
+      userId: user.id,
+      cookie: state.cookie,
+      maxTweets: state.maxTweets,
+      sinceId: incremental ? state.sinceId : null,
+    });
+
+    if (newSinceId) {
+      persistSinceId(newSinceId, state.username);
+      log(`💾 已保存 since_id: ${newSinceId}`, 'success');
     }
-  });
+    log(`完成: ${state.tweets.length} 推文, ${state.images.length} 图, ${state.videos.length} 视频, ${state.gifs.length} GIF`, 'success');
+    setProgress(100, '完成', totalFetched, state.maxTweets);
+  } finally {
+    state.isFetching = false;
+  }
 }
 
 // =============================================================================
