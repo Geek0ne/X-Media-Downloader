@@ -640,3 +640,144 @@ describe('maxTweetId', () => {
     expect(Utils.maxTweetId([t('9007199254740991'), t(big)])).toBe(big);
   });
 });
+
+describe('toNotionCsv', () => {
+  const tw = (over = {}) => ({
+    legacy: {
+      id_str: '123',
+      created_at: 'Wed Oct 10 20:19:24 +0000 2018',
+      full_text: '看看这个 https://t.co/abc',
+      favorite_count: 42,
+      retweet_count: 7,
+      reply_count: 3,
+      ...over,
+    },
+  });
+
+  test('表头是中文，便于 Notion 直接做属性名', () => {
+    const lines = Utils.toNotionCsv([], 'alice').split('\r\n');
+    expect(lines[0]).toContain('发布日期');
+    expect(lines[0]).toContain('推文链接');
+  });
+
+  test('开头带 BOM，否则 Excel 会把中文认成乱码', () => {
+    expect(Utils.toNotionCsv([], 'alice').charCodeAt(0)).toBe(0xFEFF);
+  });
+
+  test('正文里的 t.co 短链被清掉', () => {
+    const csv = Utils.toNotionCsv([tw()], 'alice');
+    expect(csv).not.toContain('t.co');
+    expect(csv).toContain('看看这个');
+  });
+
+  test('生成可点击的推文链接', () => {
+    expect(Utils.toNotionCsv([tw()], 'alice')).toContain('https://x.com/i/status/123');
+  });
+
+  test('★ 正文含逗号时必须转义，否则表格错列', () => {
+    const csv = Utils.toNotionCsv([tw({ full_text: '第一句,第二句,第三句' })], 'alice');
+    expect(csv).toContain('"第一句,第二句,第三句"');
+  });
+
+  test('★ 正文含双引号时要转成两个', () => {
+    const csv = Utils.toNotionCsv([tw({ full_text: '他说"你好"' })], 'alice');
+    expect(csv).toContain('"他说""你好"""');
+  });
+
+  test('正文含换行时用引号包住', () => {
+    const csv = Utils.toNotionCsv([tw({ full_text: '第一行\n第二行' })], 'alice');
+    expect(csv).toContain('"第一行\n第二行"');
+  });
+
+  test('日期转成 YYYY-MM-DD', () => {
+    expect(Utils.toNotionCsv([tw()], 'alice')).toContain('2018-10-10');
+  });
+
+  test('空推文列表只输出表头', () => {
+    const lines = Utils.toNotionCsv([], 'alice').split('\r\n');
+    expect(lines.filter(Boolean)).toHaveLength(1);
+  });
+
+  test('缺 created_at 不抛异常', () => {
+    const t = { legacy: { id_str: '1', full_text: 'x' } };
+    expect(() => Utils.toNotionCsv([t], 'alice')).not.toThrow();
+  });
+});
+
+describe('toObsidianMarkdown', () => {
+  const tw = (id, date, text) => ({
+    legacy: { id_str: String(id), created_at: date, full_text: text || '内容' },
+  });
+  const D1 = 'Wed Oct 10 20:19:24 +0000 2018';
+  const D2 = 'Thu Oct 11 20:19:24 +0000 2018';
+
+  test('开头是 YAML frontmatter', () => {
+    const md = Utils.toObsidianMarkdown([], [], 'alice');
+    expect(md.startsWith('---\n')).toBe(true);
+    expect(md).toContain('username: alice');
+    expect(md).toContain('tags:');
+    expect(md).toContain('  - x-archive');
+  });
+
+  test('按日期分组', () => {
+    const md = Utils.toObsidianMarkdown(
+      [tw(1, D1), tw(2, D2)], [], 'alice');
+    expect(md).toContain('## 2018-10-10');
+    expect(md).toContain('## 2018-10-11');
+  });
+
+  test('★ 日期分组是倒序的，最新的在前', () => {
+    const md = Utils.toObsidianMarkdown([tw(1, D1), tw(2, D2)], [], 'alice');
+    expect(md.indexOf('2018-10-11')).toBeLessThan(md.indexOf('2018-10-10'));
+  });
+
+  test('图片用 Obsidian 嵌入语法', () => {
+    const md = Utils.toObsidianMarkdown(
+      [tw(1, D1)],
+      [{ tweetId: '1', type: 'image', url: 'https://pbs.twimg.com/media/x.jpg' }],
+      'alice');
+    expect(md).toContain('![](https://pbs.twimg.com/media/x.jpg)');
+  });
+
+  test('视频用 ![[...]] 语法便于嵌入', () => {
+    const md = Utils.toObsidianMarkdown(
+      [tw(1, D1)],
+      [{ tweetId: '1', type: 'video', url: 'https://video.twimg.com/v.mp4' }],
+      'alice');
+    expect(md).toContain('![[https://video.twimg.com/v.mp4]]');
+  });
+
+  test('媒体只挂在对应推文下', () => {
+    const md = Utils.toObsidianMarkdown(
+      [tw(1, D1), tw(2, D2)],
+      [{ tweetId: '2', type: 'image', url: 'https://a.com/2.jpg' }],
+      'alice');
+    expect(md).toContain('https://a.com/2.jpg');
+  });
+
+  test('正文里的 t.co 被清掉', () => {
+    const md = Utils.toObsidianMarkdown([tw(1, D1, '看看 https://t.co/xyz')], [], 'alice');
+    expect(md).not.toContain('t.co');
+  });
+
+  test('frontmatter 里的计数与实际一致', () => {
+    const md = Utils.toObsidianMarkdown(
+      [tw(1, D1), tw(2, D2)],
+      [{ tweetId: '1', type: 'image', url: 'https://a/1.jpg' }],
+      'alice');
+    expect(md).toContain('tweets: 2');
+    expect(md).toContain('media: 1');
+  });
+
+  test('空输入也能出合法 frontmatter', () => {
+    const md = Utils.toObsidianMarkdown([], [], 'alice');
+    expect(md).toContain('tweets: 0');
+    expect(md).toContain('# @alice 的推文存档');
+  });
+
+  test('非法日期归到「未知日期」而不是崩掉', () => {
+    const md = Utils.toObsidianMarkdown(
+      [{ legacy: { id_str: '1', created_at: 'not-a-date', full_text: 'x' } }], [], 'alice');
+    expect(md).toContain('未知日期');
+  });
+});

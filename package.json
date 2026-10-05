@@ -1,6 +1,6 @@
 {
   "name": "x-media-downloader",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "X (Twitter) 媒体下载器 - 单页应用，可部署到 Netlify/Cloudflare Pages",
   "main": "index.html",
   "scripts": {

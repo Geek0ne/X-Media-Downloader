@@ -1,14 +1,15 @@
-# X Media Downloader · 推特媒体下载器 v3.1
+# X Media Downloader · 推特媒体下载器 v3.2
 
 > 下载 X (Twitter) 账号的全部图片和视频，最高清晰度，零后端、纯静态、免费部署。支持多账号批量抓取、评论抓取、PWA 离线使用。
 
-![License](https://img.shields.io/badge/license-MIT-blue) ![No Backend](https://img.shields.io/badge/backend-none-green) ![Free Deploy](https://img.shields.io/badge/deploy-Netlify%20%7C%20CF%20Pages-brightgreen) ![v3.1](https://img.shields.io/badge/version-3.1-orange) ![PWA](https://img.shields.io/badge/PWA-supported-blueviolet)
+![License](https://img.shields.io/badge/license-MIT-blue) ![No Backend](https://img.shields.io/badge/backend-none-green) ![Free Deploy](https://img.shields.io/badge/deploy-Netlify%20%7C%20CF%20Pages-brightgreen) ![v3.2](https://img.shields.io/badge/version-3.2-orange) ![PWA](https://img.shields.io/badge/PWA-supported-blueviolet)
 
 ---
 
 ## 📋 目录
 
 - [项目简介](#项目简介)
+- [v3.2 新特性](#v32-新特性)
 - [v3.1 新特性](#v31-新特性)
 - [v3.0 新特性](#v30-新特性)
 - [核心特性](#核心特性)
@@ -42,6 +43,20 @@
 - 📦 **ZIP 打包**：一键打包所有媒体 + 推文原文
 
 ---
+
+## v3.2 新特性
+
+| 新功能 | 说明 |
+|--------|------|
+| 🆕 **Obsidian 导出** | 导出成 Markdown 笔记：YAML frontmatter + 按日期分组 + 媒体内嵌，丢进库里就能看 |
+| 🆕 **Notion 导出** | 导出 CSV，带 BOM 与中文表头，导入 Notion 直接变成一张表格 |
+| 🆕 **增量 bug 修复** | `since_id` 改为按账号分开存放，换账号不再被上一个账号的推文范围误过滤 |
+
+维护性改动：
+
+- 抓取循环合并为唯一一份实现（`fetchTimeline`），此前 `startFetch` 与 `runSingleFetch` 各写一套
+- 增量过滤逻辑抽为纯函数，与单元测试共用同一份实现
+- CSV 转义处理：正文含逗号、引号、换行时不再导致表格错列
 
 ## v3.1 新特性
 
@@ -294,7 +309,7 @@ GraphQL API: UserMedia → 分页拉取推文
 - [ ] 收藏 / 书签抓取
 - [ ] 关注列表抓取
 - [ ] AI 自动标签（图像识别）
-- [ ] 与 Notion / Obsidian 集成
+- [x] **与 Notion / Obsidian 集成**（v3.2 已实现，导出格式）
 - [ ] 浏览器扩展（Chrome / Firefox）
 - [ ] 桌面应用（Electron / Tauri）
 
@@ -891,7 +906,7 @@ server {
 
 ### 自动测试（GitHub Actions）
 
-每次 push 到 master 时，GitHub Actions 会自动运行 59 个单元测试。结果显示在仓库的 Actions 标签页。
+每次 push 到 master 时，GitHub Actions 会自动运行 99 个单元测试。结果显示在仓库的 Actions 标签页。
 
 ---
 

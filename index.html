@@ -856,12 +856,14 @@ body {
       <button id="exportJsonBtn" class="btn btn-secondary">📋 导出清单</button>
       <button id="exportTweetsBtn" class="btn btn-secondary">📝 导出推文原文</button>
       <button id="exportCommentsBtn" class="btn btn-secondary">💬 导出评论</button>
+      <button id="exportObsidianBtn" class="btn btn-secondary">📓 导出 Obsidian</button>
+      <button id="exportNotionBtn" class="btn btn-secondary">🗒️ 导出 Notion CSV</button>
       <button id="resetDownloadedBtn" class="btn btn-danger btn-sm">重置下载状态</button>
     </div>
   </div>
 
   <div class="footer">
-    <p>v3.1 · 仅供个人备份使用 · 数据保存在你的浏览器本地</p>
+    <p>v3.2 · 仅供个人备份使用 · 数据保存在你的浏览器本地</p>
   </div>
 </div>
 
@@ -2088,6 +2090,47 @@ async function downloadZip() {
   }
 }
 
+// 触发浏览器下载。之前这段样板在文件里重复了四五遍，抽出来省得改漏。
+function downloadFile(filename, content, mime) {
+  const blob = content instanceof Blob ? content : new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// 导出成 Notion 可导入的 CSV
+function exportNotion() {
+  if (!state.tweets.length) return toast('还没有抓取到推文', 'error');
+  const csv = toNotionCsv(state.tweets, state.username);
+  downloadFile(`${state.username}_notion_${Date.now()}.csv`, csv, 'text/csv;charset=utf-8');
+  toast(`已导出 ${state.tweets.length} 条，导入 Notion 后会变成一张表格`, 'success');
+}
+
+// 导出成 Obsidian 笔记（YAML frontmatter + 按日期分组 + 媒体内嵌）
+function exportObsidian() {
+  if (!state.tweets.length) return toast('还没有抓取到推文', 'error');
+  const media = [...filteredData.images, ...filteredData.videos, ...filteredData.gifs];
+  const md = toObsidianMarkdown(state.tweets, media, state.username);
+  downloadFile(`${state.username}_obsidian_${Date.now()}.md`, md, 'text/markdown;charset=utf-8');
+  toast('已导出，丢进 Obsidian 库就能看', 'success');
+}
+
+// Obsidian / Notion 格式化的实现体在 lib/utils.js，这里只做委托。
+function toNotionCsv(tweets, username) {
+  return window.XMD_Utils
+    ? window.XMD_Utils.toNotionCsv(tweets, username)
+    : '推文链接\r\n';
+}
+
+function toObsidianMarkdown(tweets, media, username) {
+  return window.XMD_Utils
+    ? window.XMD_Utils.toObsidianMarkdown(tweets, media, username)
+    : '# 导出失败：utils.js 未加载';
+}
+
 function exportJson() {
   const data = {
     username: state.username,
@@ -2489,6 +2532,8 @@ $('downloadZipBtn').addEventListener('click', downloadZip);
 $('exportJsonBtn').addEventListener('click', exportJson);
 $('exportTweetsBtn').addEventListener('click', exportTweets);
 $('exportCommentsBtn').addEventListener('click', exportComments);
+$('exportObsidianBtn').addEventListener('click', exportObsidian);
+$('exportNotionBtn').addEventListener('click', exportNotion);
 $('resetDownloadedBtn').addEventListener('click', resetDownloaded);
 $('addBatchBtn').addEventListener('click', addBatchTasks);
 $('runBatchBtn').addEventListener('click', runBatchTasks);
