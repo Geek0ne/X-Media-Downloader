@@ -932,7 +932,7 @@ function loadPersisted() {
   setTheme(theme);
   // 增量抓取的 since_id
   const since = localStorage.getItem('sinceId');
-  if (since) state.sinceId = since;
+  if (since) state.sinceId = since; // 旧版全局 key，由 loadSinceId 迁移
 }
 
 function persistCookie() {
@@ -954,9 +954,29 @@ function persistDownloaded() {
   }
 }
 
-function persistSinceId(sinceId) {
+function persistSinceId(sinceId, username) {
   state.sinceId = sinceId;
-  localStorage.setItem('sinceId', sinceId);
+  const key = sinceKey(username || state.username);
+  localStorage.setItem(key, sinceId);
+  return key;
+}
+
+// 读某个账号自己的 since_id。
+// 旧版把所有账号共用一个 'sinceId' 键，换账号时会拿上一个账号的
+// since_id 去过滤新账号，导致新账号的推文被整片滤掉。这里做一次迁移。
+function loadSinceId(username) {
+  const key = sinceKey(username);
+  let v = localStorage.getItem(key);
+  if (!v) {
+    const legacy = localStorage.getItem('sinceId');
+    if (legacy) {
+      v = legacy;
+      localStorage.setItem(key, legacy);
+      localStorage.removeItem('sinceId');
+    }
+  }
+  state.sinceId = v || null;
+  return state.sinceId;
 }
 
 function setTheme(theme) {
@@ -1475,11 +1495,15 @@ async function startFetch() {
   persistCookie();
 
   // 增量模式：使用本地保存的 since_id
+  // 关键：必须按当前账号重新读，不能用启动时加载的那份
   const incremental = $('incrementalMode').checked;
+  const savedSince = incremental ? loadSinceId(username) : null;
   let sinceId = null;
-  if (incremental && state.sinceId) {
-    sinceId = state.sinceId;
+  if (savedSince) {
+    sinceId = savedSince;
     log(`📌 增量模式：只拉取 since_id=${sinceId} 之后的新推文`, 'success');
+  } else if (incremental) {
+    log(`ℹ️ ${username} 还没有历史记录，本次按全量抓取`, '');
   } else {
     log(`🔄 全量模式：清空旧推文重新抓取`);
   }
@@ -1581,7 +1605,7 @@ async function startFetch() {
     // 保存 since_id
     const newSinceId = lastSinceId || lastTweetId;
     if (newSinceId) {
-      persistSinceId(newSinceId);
+      persistSinceId(newSinceId, username);
       log(`💾 已保存 since_id: ${newSinceId}`, 'success');
     }
 
@@ -1625,6 +1649,13 @@ function mediaKey(item) {
   return window.XMD_Utils
     ? window.XMD_Utils.mediaKey(item)
     : (item?.type || '') + '::' + String(item?.url || '').split('?')[0];
+}
+
+// since_id 的存储键，按账号分开。实现体在 lib/utils.js（可被测试覆盖）。
+function sinceKey(username) {
+  return window.XMD_Utils
+    ? window.XMD_Utils.sinceKey(username)
+    : `sinceId_${String(username || '').trim().replace(/^@/, '')}`;
 }
 
 function dedupeMedia() {
@@ -2194,8 +2225,7 @@ async function runBatchTasks() {
       const archive = accountArchive[task.username];
       if (archive && $('incrementalMode').checked) {
         // 检查 since_id
-        const sinceKey = `sinceId_${task.username}`;
-        const archivedSince = localStorage.getItem(sinceKey);
+        const archivedSince = localStorage.getItem(sinceKey(task.username));
         if (archivedSince) state.sinceId = archivedSince;
       } else {
         // 全新抓取，清空
@@ -2310,7 +2340,7 @@ async function runSingleFetch() {
       const newSinceId = lastSinceId || lastTweetId;
       if (newSinceId) {
         // 按账号分开保存 since_id
-        localStorage.setItem(`sinceId_${state.username}`, newSinceId);
+        persistSinceId(newSinceId, state.username);
         log(`💾 已保存 since_id: ${newSinceId}`, 'success');
       }
       log(`完成: ${state.tweets.length} 推文, ${state.images.length} 图, ${state.videos.length} 视频, ${state.gifs.length} GIF`, 'success');

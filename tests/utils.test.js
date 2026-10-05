@@ -521,3 +521,34 @@ describe('classifyApiError · isHashBroken 标记', () => {
     expect(e.message).not.toContain('请重新登录');
   });
 });
+
+describe('sinceKey', () => {
+  test('按用户名生成独立键', () => {
+    expect(Utils.sinceKey('elonmusk')).toBe('sinceId_elonmusk');
+  });
+
+  test('去掉开头的 @', () => {
+    expect(Utils.sinceKey('@elonmusk')).toBe('sinceId_elonmusk');
+  });
+
+  test('去掉首尾空白', () => {
+    expect(Utils.sinceKey('  elonmusk  ')).toBe('sinceId_elonmusk');
+  });
+
+  test('@ 和空白混搭也能归一', () => {
+    expect(Utils.sinceKey(' @elona musk ')).toBe('sinceId_elona musk');
+  });
+
+  test('不同账号得到不同键（这是本次修复的核心）', () => {
+    expect(Utils.sinceKey('alice')).not.toBe(Utils.sinceKey('bob'));
+  });
+
+  test('带 @ 与不带 @ 视为同一账号', () => {
+    expect(Utils.sinceKey('@alice')).toBe(Utils.sinceKey('alice'));
+  });
+
+  test('空用户名不抛异常', () => {
+    expect(Utils.sinceKey('')).toBe('sinceId_');
+    expect(Utils.sinceKey(undefined)).toBe('sinceId_');
+  });
+});
