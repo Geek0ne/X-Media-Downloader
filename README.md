@@ -1,14 +1,15 @@
-# X Media Downloader · 推特媒体下载器 v3.2
+# X Media Downloader · 推特媒体下载器 v3.3
 
-> 下载 X (Twitter) 账号的全部图片和视频，最高清晰度，零后端、纯静态、免费部署。支持多账号批量抓取、评论抓取、PWA 离线使用。
+> 下载 X (Twitter) 账号的全部图片和视频，最高清晰度，零后端、纯静态、免费部署。支持多账号批量抓取、评论抓取、书签抓取、关注列表导出、PWA 离线使用。
 
-![License](https://img.shields.io/badge/license-MIT-blue) ![No Backend](https://img.shields.io/badge/backend-none-green) ![Free Deploy](https://img.shields.io/badge/deploy-Netlify%20%7C%20CF%20Pages-brightgreen) ![v3.2](https://img.shields.io/badge/version-3.2-orange) ![PWA](https://img.shields.io/badge/PWA-supported-blueviolet)
+![License](https://img.shields.io/badge/license-MIT-blue) ![No Backend](https://img.shields.io/badge/backend-none-green) ![Free Deploy](https://img.shields.io/badge/deploy-Netlify%20%7C%20CF%20Pages-brightgreen) ![v3.3](https://img.shields.io/badge/version-3.3-orange) ![PWA](https://img.shields.io/badge/PWA-supported-blueviolet)
 
 ---
 
 ## 📋 目录
 
 - [项目简介](#项目简介)
+- [v3.3 新特性](#v33-新特性)
 - [v3.2 新特性](#v32-新特性)
 - [v3.1 新特性](#v31-新特性)
 - [v3.0 新特性](#v30-新特性)
@@ -43,6 +44,22 @@
 - 📦 **ZIP 打包**：一键打包所有媒体 + 推文原文
 
 ---
+
+## v3.3 新特性
+
+| 新功能 | 说明 |
+|--------|------|
+| 🆕 **书签抓取** | 一键抓取当前 Cookie 账号收藏的全部推文媒体，与普通抓取共用图片/视频/GIF 三 Tab 与所有导出功能 |
+| 🆕 **关注列表抓取** | 抓取任意账号「正在关注」的人，卡片展示头像/简介/粉丝数，可导出带 BOM 的 CSV（Excel/Notion 直接可用） |
+| 🆕 **本地监控与诊断** | 自动捕获页面错误、记录每次 X 接口请求的耗时与成败；右上角 🩺 打开诊断面板查看会话统计。数据只留在页面内存，不上报 |
+| 🆕 **hash 配置扩展** | 高级设置从 2 个扩展到 4 个可配置 hash（新增 Bookmarks / Following），X 改接口后依然不用改代码 |
+| ✅ **E2E 测试** | Playwright 黑盒测试：mock 全部 X 接口跑完整用户流程（抓取/书签/关注/导出/诊断），CI 里可重复运行 |
+| ✅ **开发者文档** | 新增 [docs/API.md](docs/API.md)（接口说明与调研方法）与 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)（架构与新功能开发指南） |
+
+维护性改动：
+
+- 单元测试从 99 个增加到 124 个，书签/关注解析、CSV 导出、监控环形缓冲均被覆盖
+- 评论抓取接口（TweetDetail）的观测数据也接入了诊断面板
 
 ## v3.2 新特性
 
@@ -306,8 +323,8 @@ GraphQL API: UserMedia → 分页拉取推文
 - [x] **多账号批量任务**（v3.0 已实现）
 - [x] **评论抓取**（v3.0 已实现）
 - [x] **媒体去重**（v3.1 已实现）
-- [ ] 收藏 / 书签抓取
-- [ ] 关注列表抓取
+- [x] **收藏 / 书签抓取**（v3.3 已实现）
+- [x] **关注列表抓取**（v3.3 已实现）
 - [ ] AI 自动标签（图像识别）
 - [x] **与 Notion / Obsidian 集成**（v3.2 已实现，导出格式）
 - [ ] 浏览器扩展（Chrome / Firefox）
@@ -319,9 +336,9 @@ GraphQL API: UserMedia → 分页拉取推文
 - [x] 兼容性：Chrome / Firefox / Safari / Edge 现代浏览器
 - [x] 可访问性：键盘导航 + ARIA 标签
 - [x] 国际化：中英文双语
-- [ ] 测试：单元测试 + E2E 测试
-- [ ] 监控：错误上报 + 性能监控
-- [ ] 文档：API 文档 + 开发者文档
+- [x] 测试：单元测试（124 个）+ E2E 测试（Playwright 8 个用例，v3.3 落地）
+- [x] 监控：本地错误捕获 + 接口请求性能指标（v3.3 已实现，数据仅存页面内存不上报）
+- [x] 文档：[API 文档](docs/API.md) + [开发者文档](docs/DEVELOPMENT.md)（v3.3 已落地）
 
 ---
 
@@ -847,6 +864,40 @@ server {
 4. 应用会出现在桌面/开始菜单
 5. 离线时打开应用，仍可使用（除 X API 调用）
 
+### 场景七：备份自己的书签（v3.3）
+
+**目标**：把当前账号收藏的推文媒体全部下载
+
+**步骤**：
+
+1. 粘贴自己的 Cookie（书签是私人数据，只能抓自己的）
+2. 点击「🔖 抓取我的书签」
+3. 媒体进入图片/视频/GIF Tab，后续下载与导出操作同场景一
+4. 「最大推文数」同样限制书签抓取量
+
+### 场景八：导出关注列表（v3.3）
+
+**目标**：拿到某账号正在关注的人，存成表格
+
+**步骤**：
+
+1. 输入目标用户名 + Cookie
+2. 点击「👥 抓取关注列表」
+3. 自动切到「👥 关注」Tab，卡片显示头像/昵称/简介/粉丝数
+4. 点击「👥 导出关注 CSV」得到带 BOM 的 CSV，Excel / Notion 直接打开
+5. 「最大推文数」输入框控制抓取人数上限
+
+### 场景九：抓取出问题时看诊断（v3.3）
+
+**目标**：搞清楚失败原因与接口健康度
+
+**步骤**：
+
+1. 点击右上角「🩺」打开诊断面板
+2. 查看 X 接口请求的成功率与平均耗时（区分各接口）
+3. 查看本次会话捕获到的错误列表
+4. 数据只保存在页面内存里，刷新即清空，不上报任何服务器
+
 ### 数据存储位置
 
 所有数据都保存在**浏览器本地**（localStorage）：
@@ -858,6 +909,7 @@ server {
 | 下载记录 | `downloaded` |
 | since_id | `sinceId_<username>` |
 | 增量开关 | `rememberCookie` |
+| 接口 hash 覆盖 | `xQueryHashes` |
 
 **清理数据：**
 - 浏览器 DevTools → Application → Local Storage → 删除对应 key
@@ -906,7 +958,7 @@ server {
 
 ### 自动测试（GitHub Actions）
 
-每次 push 到 master 时，GitHub Actions 会自动运行 99 个单元测试。结果显示在仓库的 Actions 标签页。
+每次 push 到 master 时，GitHub Actions 会自动运行两层测试：124 个单元测试（vitest）+ 8 个 Playwright E2E 用例（mock 全部 X 接口，跑完整用户流程）。结果显示在仓库的 Actions 标签页。
 
 ---
 

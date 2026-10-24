@@ -32,3 +32,11 @@ yarn-debug.log*
 *.bak
 *.swp
 tests/node_modules/
+
+# 本地安全扫描产物
+.mimosa/
+tests/.mimosa/
+
+# Playwright 本地产物
+tests/e2e/test-results/
+tests/e2e/playwright-report/

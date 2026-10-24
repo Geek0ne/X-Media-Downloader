@@ -1,6 +1,6 @@
 {
   "name": "x-media-downloader",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "description": "X (Twitter) 媒体下载器 - 单页应用，可部署到 Netlify/Cloudflare Pages",
   "main": "index.html",
   "scripts": {
@@ -8,6 +8,7 @@
     "serve": "npx serve -p 8000 -s .",
     "test": "npm test --prefix tests",
     "test:watch": "npm run test:watch --prefix tests",
+    "test:e2e": "npm test --prefix tests/e2e",
     "deploy": "netlify deploy --prod"
   },
   "author": "Geek0ne",

@@ -781,3 +781,261 @@ describe('toObsidianMarkdown', () => {
     expect(md).toContain('未知日期');
   });
 });
+
+describe('flattenBookmarks', () => {
+  const bookmarksTimeline = {
+    data: {
+      bookmark_timeline_v2: {
+        timeline: {
+          instructions: [{
+            type: 'TimelineAddEntries',
+            entries: [
+              { content: { entryType: 'TimelineTimelineItem',
+                itemContent: { tweet_results: { result: { rest_id: '101' } } } } },
+              { content: { entryType: 'TimelineTimelineCursor', cursorType: 'Bottom', value: 'c1' } },
+            ],
+          }],
+        },
+      },
+    },
+  };
+
+  test('从 bookmark_timeline_v2 提取推文', () => {
+    const tweets = Utils.flattenBookmarks(bookmarksTimeline);
+    expect(tweets.length).toBe(1);
+    expect(tweets[0].rest_id).toBe('101');
+  });
+
+  test('兼容旧的 bookmark_timeline 路径', () => {
+    const legacy = {
+      data: { bookmark_timeline: bookmarksTimeline.data.bookmark_timeline_v2 },
+    };
+    expect(Utils.flattenBookmarks(legacy).length).toBe(1);
+  });
+
+  test('空响应不抛异常', () => {
+    expect(Utils.flattenBookmarks({})).toEqual([]);
+    expect(Utils.flattenBookmarks(null)).toEqual([]);
+  });
+});
+
+describe('getBookmarksCursor', () => {
+  test('提取 Bottom cursor', () => {
+    const timeline = {
+      data: {
+        bookmark_timeline_v2: {
+          timeline: {
+            instructions: [{
+              type: 'TimelineAddEntries',
+              entries: [
+                { content: { entryType: 'TimelineTimelineCursor', cursorType: 'Bottom', value: 'bk-cursor' } },
+              ],
+            }],
+          },
+        },
+      },
+    };
+    expect(Utils.getBookmarksCursor(timeline)).toBe('bk-cursor');
+  });
+
+  test('没有 cursor 返回 null', () => {
+    expect(Utils.getBookmarksCursor({})).toBe(null);
+  });
+});
+
+describe('extractFollowing', () => {
+  const userEntry = (screenName, opts = {}) => ({
+    entryId: `user-${screenName}`,
+    content: {
+      entryType: 'TimelineTimelineItem',
+      itemContent: {
+        user_results: {
+          result: {
+            rest_id: opts.id || '1',
+            is_blue_verified: opts.verified || false,
+            legacy: {
+              screen_name: screenName,
+              name: opts.name || screenName,
+              description: opts.bio || '',
+              followers_count: opts.followers ?? 0,
+              friends_count: opts.following ?? 0,
+              profile_image_url_https: opts.avatar
+                || `https://pbs.twimg.com/profile_images/${screenName}_normal.jpg`,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const followingTimeline = (entries) => ({
+    data: {
+      user: {
+        result: {
+          timeline: {
+            timeline: {
+              instructions: [{ type: 'TimelineAddEntries', entries }],
+            },
+          },
+        },
+      },
+    },
+  });
+
+  test('提取用户字段', () => {
+    const users = Utils.extractFollowing(followingTimeline([
+      userEntry('alice', { name: 'Alice', bio: 'hi', followers: 100, following: 10, verified: true }),
+    ]));
+    expect(users.length).toBe(1);
+    expect(users[0]).toMatchObject({
+      id: '1', username: 'alice', name: 'Alice', bio: 'hi',
+      followers: 100, following: 10, verified: true,
+      url: 'https://x.com/alice',
+    });
+  });
+
+  test('★ 头像升级到 400x400，别用 48px 的 _normal 图', () => {
+    const users = Utils.extractFollowing(followingTimeline([userEntry('bob')]));
+    expect(users[0].avatar).toContain('_400x400');
+    expect(users[0].avatar).not.toContain('_normal');
+  });
+
+  test('★ who-to-follow 推荐模块被剔除，不算关注列表', () => {
+    const users = Utils.extractFollowing(followingTimeline([
+      userEntry('alice'),
+      { ...userEntry('recommended'), entryId: 'who-to-follow-0' },
+    ]));
+    expect(users.length).toBe(1);
+    expect(users[0].username).toBe('alice');
+  });
+
+  test('没有 legacy 的条目跳过', () => {
+    const users = Utils.extractFollowing(followingTimeline([
+      { entryId: 'x', content: { entryType: 'TimelineTimelineItem',
+        itemContent: { user_results: { result: { rest_id: '9' } } } } },
+    ]));
+    expect(users.length).toBe(0);
+  });
+
+  test('空响应不抛异常', () => {
+    expect(Utils.extractFollowing({})).toEqual([]);
+  });
+});
+
+describe('getFollowingCursor', () => {
+  test('提取 Bottom cursor', () => {
+    const timeline = {
+      data: {
+        user: {
+          result: {
+            timeline: {
+              timeline: {
+                instructions: [{
+                  type: 'TimelineAddEntries',
+                  entries: [
+                    { content: { entryType: 'TimelineTimelineCursor', cursorType: 'Bottom', value: 'fo-cursor' } },
+                  ],
+                }],
+              },
+            },
+          },
+        },
+      },
+    };
+    expect(Utils.getFollowingCursor(timeline)).toBe('fo-cursor');
+  });
+
+  test('没有 cursor 返回 null', () => {
+    expect(Utils.getFollowingCursor({})).toBe(null);
+  });
+});
+
+describe('toFollowingCsv', () => {
+  const u = (over = {}) => ({
+    username: 'alice',
+    name: 'Alice',
+    followers: 1000,
+    following: 50,
+    verified: true,
+    bio: 'hello world',
+    url: 'https://x.com/alice',
+    ...over,
+  });
+
+  test('含中文表头和 BOM', () => {
+    const csv = Utils.toFollowingCsv([u()]);
+    expect(csv.charCodeAt(0)).toBe(0xFEFF);
+    expect(csv).toContain('用户名,昵称,粉丝数,关注数,认证,简介,主页');
+  });
+
+  test('字段逐列输出', () => {
+    const csv = Utils.toFollowingCsv([u()]);
+    expect(csv).toContain('alice,Alice,1000,50,是,hello world,https://x.com/alice');
+  });
+
+  test('★ 简介含逗号引号时正确转义', () => {
+    const csv = Utils.toFollowingCsv([u({ bio: '说"你好",再见' })]);
+    expect(csv).toContain('"说""你好"",再见"');
+  });
+
+  test('未认证输出否，缺字段不抛异常', () => {
+    const csv = Utils.toFollowingCsv([{ username: 'bob' }]);
+    expect(csv).toContain('bob,,,,否,,https://x.com/bob');
+  });
+
+  test('空列表只输出表头', () => {
+    const lines = Utils.toFollowingCsv([]).split('\r\n').filter(Boolean);
+    expect(lines).toHaveLength(1);
+  });
+
+  test('null 输入不抛异常', () => {
+    expect(() => Utils.toFollowingCsv(null)).not.toThrow();
+  });
+});
+
+describe('ringPush', () => {
+  test('未满时全部保留', () => {
+    const arr = [];
+    Utils.ringPush(arr, 'a', 3);
+    Utils.ringPush(arr, 'b', 3);
+    expect(arr).toEqual(['a', 'b']);
+  });
+
+  test('★ 超长后丢最旧的，长度不无限增长', () => {
+    const arr = [];
+    for (let i = 0; i < 10; i++) Utils.ringPush(arr, i, 3);
+    expect(arr).toEqual([7, 8, 9]);
+  });
+
+  test('非数组输入也能工作', () => {
+    const arr = Utils.ringPush(null, 'x', 2);
+    expect(arr).toEqual(['x']);
+  });
+});
+
+describe('summarizeRequests', () => {
+  test('空记录返回零', () => {
+    expect(Utils.summarizeRequests([])).toEqual({ total: 0, failed: 0, avgMs: 0, failRate: 0 });
+  });
+
+  test('统计失败数与平均延迟', () => {
+    const s = Utils.summarizeRequests([
+      { ok: true, ms: 100 },
+      { ok: true, ms: 300 },
+      { ok: false, ms: 200 },
+    ]);
+    expect(s.total).toBe(3);
+    expect(s.failed).toBe(1);
+    expect(s.avgMs).toBe(200);
+    expect(s.failRate).toBeCloseTo(1 / 3);
+  });
+
+  test('缺 ms 字段按 0 计，不产生 NaN', () => {
+    const s = Utils.summarizeRequests([{ ok: true }]);
+    expect(s.avgMs).toBe(0);
+  });
+
+  test('非数组输入返回零', () => {
+    expect(Utils.summarizeRequests(null).total).toBe(0);
+  });
+});
